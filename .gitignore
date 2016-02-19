@@ -1,0 +1,12 @@
+build.sh
+rako.*
+*.out
+*.o
+callgrind.out.*
+__pycache__
+build
+perf.sh
+notes.txt
+mk.sh
+game.sh
+*.exe
