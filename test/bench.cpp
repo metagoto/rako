@@ -114,11 +114,16 @@ int main()
   std::uint64_t k = 0;
   std::uint64_t l = 0;
   t.start();
-  eg.for_each<meta::list<pos, name>>([&k, &l, &eg](auto const& p, auto&)
+  eg.for_each<meta::list<eg_t::handle, pos, name>>(
+    [&k, &l, &eg](auto const& h1, auto const& p, auto&)
     {
-      eg.for_each<meta::list<pos, name>>([&k, &l, &p](auto const& q, auto& /*n*/)
+      eg.for_each<meta::list<eg_t::handle, pos, name>>(
+        [&h1, &k, &l, &p](auto const& h2, auto const& q, auto&)
         {
-          if (p.x == q.x && p.y == q.y) ++l;
+          // if (p.x == q.x && p.y == q.y) ++l;
+          (void)p;
+          (void)q;
+          if (h1 == h2) ++l;
           ++k;
         });
     });

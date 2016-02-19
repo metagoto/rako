@@ -169,7 +169,7 @@ namespace rako
       auto& d = entity.get(h);
       assert(d.bset[bset_comp_index(i)]);
       d.bset.reset(bset_comp_index(i));
-      auto const& c = d.component[i];
+      auto& c = d.component[i];
       auto& a = std::get<i>(component_data);
       a.erase(c);
       return *this;

@@ -44,13 +44,11 @@ namespace rako
 
 
 
-  template <typename... CGLs> // meta::list<T1,T2>, meta::list<T1,T3>
+  template <typename... CGLs> // meta::list<T1,T2>, meta::list<T1,T3>, ...
   struct entity_group_manager
   {
-    // using group_tuple =
-    //  std::tuple<component_group<CGLs, component_group_traits>...>; /// TODO: traits!
     using group_tuple = typename impl::group_id_expand<component_group_traits,
-      std::index_sequence_for<CGLs...>, CGLs...>::type;
+      std::index_sequence_for<CGLs...>, CGLs...>::type; // TODO: traits!
 
     using group_list = meta::as_list<group_tuple>;
 
@@ -74,10 +72,7 @@ namespace rako
       using meta::placeholders::_a;
       using cgl = meta::find_if<group_list, meta::lambda<_a, impl::is_group<_a, CL>>>;
       using cg = meta::front<cgl>;
-      constexpr auto i = group_list::size() - cgl::size();
-      auto h = std::get<cg>(groups).add(std::move(t));
-      h.set_group(i);
-      return h;
+      return std::get<cg>(groups).add(std::move(t));
     }
 
     template <typename... Ts>
@@ -87,10 +82,7 @@ namespace rako
       using meta::placeholders::_a;
       using cgl = meta::find_if<group_list, meta::lambda<_a, impl::is_group<_a, CL>>>;
       using cg = meta::front<cgl>;
-      constexpr auto i = group_list::size() - cgl::size();
-      auto h = std::get<cg>(groups).add(t);
-      h.set_group(i);
-      return h;
+      return std::get<cg>(groups).add(t);
     }
 
     template <typename... Ts>
@@ -100,10 +92,7 @@ namespace rako
       using meta::placeholders::_a;
       using cgl = meta::find_if<group_list, meta::lambda<_a, impl::is_group<_a, CL>>>;
       using cg = meta::front<cgl>;
-      constexpr auto i = group_list::size() - cgl::size();
-      auto h = std::get<cg>(groups).add(t);
-      h.set_group(i);
-      return h;
+      return std::get<cg>(groups).add(t);
     }
 
     ///
@@ -208,29 +197,6 @@ namespace rako
       constexpr auto s = std::tuple_size<group_tuple>::value;
       return get_impl<T>(h, std::make_index_sequence<s>{});
     }
-
-
-
-    //    ///
-    //    template <typename...>
-    //    struct for_each_impl;
-    //    template <typename... Cs, typename T>
-    //    struct for_each_impl<meta::list<Cs...>, T>
-    //    {
-    //      template <typename Self, typename F>
-    //      static void call(Self& self, F&& f)
-    //      {
-    //        (std::get<Cs>(self.groups).template for_each<T>(std::forward<F>(f)), ...);
-    //      }
-    //    };
-
-    //    template <typename L, typename F>
-    //    void for_each(F&& f)
-    //    {
-    //      using meta::placeholders::_a;
-    //      using C = meta::filter<group_list, meta::lambda<_a, impl::is_comp<_a, L>>>;
-    //      for_each_impl<C, L>::call(*this, std::forward<F>(f));
-    //    }
 
 
     ///

@@ -25,6 +25,7 @@ namespace rako
     constexpr static auto npos = handle_t::npos;
     constexpr static auto nctr = handle_t::nctr;
     constexpr static auto ngrp = handle_t::ngrp;
+    constexpr static auto self_id = static_cast<groupid_t>(ID);
 
 
     using comp_list = meta::list<Components...>;
@@ -76,7 +77,7 @@ namespace rako
       item_array[i].ctr = ct;
       item_array[i].idx = sz;
       item_array[sz].table_idx = i;
-      return handle(i, ct);
+      return handle(i, ct, self_id);
     }
 
     template <typename... Ts>
@@ -165,26 +166,6 @@ namespace rako
       return i < item_array.size() && h.counter() == item_array[i].ctr;
     }
 
-    ///
-    //    template <typename...>
-    //    struct for_each_impl;
-    //    template <typename... Ts>
-    //    struct for_each_impl<meta::list<Ts...>>
-    //    {
-    //      template <typename Self, typename F>
-    //      static void call(Self& self, F&& f)
-    //      {
-    //        for (std::size_t i = 0; i < self.sz; ++i) {
-    //          std::forward<F>(f)(std::get<vector_t<Ts>>(self.components)[i]...);
-    //        }
-    //      }
-    //    };
-
-    //    template <typename L, typename F>
-    //    void for_each(F&& f)
-    //    {
-    //      for_each_impl<L>::call(*this, std::forward<F>(f));
-    //    }
 
     ///
     template <bool H, typename...>
@@ -199,8 +180,8 @@ namespace rako
           auto id = self.item_array[i].table_idx;
           auto idx = self.item_array[id].idx;
           auto cnt = self.item_array[id].ctr;
-          auto grp = static_cast<groupid_t>(ID);
-          std::forward<F>(f)(handle(idx, cnt, grp), std::get<vector_t<Ts>>(self.components)[i]...);
+          std::forward<F>(f)(
+            handle(idx, cnt, self_id), std::get<vector_t<Ts>>(self.components)[i]...);
         }
       }
     };

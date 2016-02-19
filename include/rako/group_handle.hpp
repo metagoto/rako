@@ -11,7 +11,7 @@ namespace rako
     constexpr static index_t npos = static_cast<index_t>(-1);
     constexpr static counter_t nctr = static_cast<counter_t>(0);
     constexpr static groupid_t ngrp = static_cast<groupid_t>(-1);
-    group_handle(index_t i, counter_t c, groupid_t g = ngrp)
+    group_handle(index_t i, counter_t c, groupid_t g /* = ngrp*/)
       : idx(i)
       , ctr(c)
       , gid(g)
@@ -33,12 +33,11 @@ namespace rako
     auto valid() const { return ctr != nctr; }
     auto invalidate() { ctr = nctr; }
   private:
-    auto set_group(groupid_t g) { gid = g; }
+    // auto set_group(groupid_t g) { gid = g; }
     index_t idx = npos;
     counter_t ctr = nctr;
     groupid_t gid = ngrp;
-    template <typename...>
-    friend class entity_group_manager;
+    // template <typename...> friend class entity_group_manager;
 
     friend bool operator==(group_handle const& a, group_handle const& b)
     {
