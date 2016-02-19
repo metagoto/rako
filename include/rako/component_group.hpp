@@ -9,13 +9,13 @@
 namespace rako
 {
 
-  template <typename...>
+  template <std::size_t, typename...>
   struct component_group;
 
-  template <typename... Components, typename Traits>
-  struct component_group<meta::list<Components...>, Traits>
+  template <std::size_t ID, typename... Components, typename Traits>
+  struct component_group<ID, meta::list<Components...>, Traits>
   {
-    using self_t = component_group<Components..., Traits>;
+    using self_t = component_group<ID, Components..., Traits>;
 
     using index_t = typename Traits::index_t;
     using counter_t = typename Traits::counter_t;
@@ -83,7 +83,6 @@ namespace rako
     auto add(std::tuple<Ts...>&& t)
     {
       auto h = grow();
-      // check dup, size etc.
       (std::get<vector_t<std::decay_t<Ts>>>(components)
           .insert(std::next(std::get<vector_t<std::decay_t<Ts>>>(components).begin(), sz),
             std::move(std::get<Ts>(t))),
@@ -96,7 +95,6 @@ namespace rako
     auto add(std::tuple<Ts...> const& t)
     {
       auto h = grow();
-      // check dup, size etc.
       (std::get<vector_t<std::decay_t<Ts>>>(components)
           .insert(std::next(std::get<vector_t<std::decay_t<Ts>>>(components).begin(), sz),
             std::get<Ts>(t)),
@@ -168,10 +166,46 @@ namespace rako
     }
 
     ///
-    template <typename...>
+    //    template <typename...>
+    //    struct for_each_impl;
+    //    template <typename... Ts>
+    //    struct for_each_impl<meta::list<Ts...>>
+    //    {
+    //      template <typename Self, typename F>
+    //      static void call(Self& self, F&& f)
+    //      {
+    //        for (std::size_t i = 0; i < self.sz; ++i) {
+    //          std::forward<F>(f)(std::get<vector_t<Ts>>(self.components)[i]...);
+    //        }
+    //      }
+    //    };
+
+    //    template <typename L, typename F>
+    //    void for_each(F&& f)
+    //    {
+    //      for_each_impl<L>::call(*this, std::forward<F>(f));
+    //    }
+
+    ///
+    template <bool H, typename...>
     struct for_each_impl;
     template <typename... Ts>
-    struct for_each_impl<meta::list<Ts...>>
+    struct for_each_impl<true, meta::list<Ts...>>
+    {
+      template <typename Self, typename F>
+      static void call(Self& self, F&& f)
+      {
+        for (std::size_t i = 0; i < self.sz; ++i) {
+          auto id = self.item_array[i].table_idx;
+          auto idx = self.item_array[id].idx;
+          auto cnt = self.item_array[id].ctr;
+          auto grp = static_cast<groupid_t>(ID);
+          std::forward<F>(f)(handle(idx, cnt, grp), std::get<vector_t<Ts>>(self.components)[i]...);
+        }
+      }
+    };
+    template <typename... Ts>
+    struct for_each_impl<false, meta::list<Ts...>>
     {
       template <typename Self, typename F>
       static void call(Self& self, F&& f)
@@ -182,10 +216,10 @@ namespace rako
       }
     };
 
-    template <typename L, typename F>
+    template <bool H, typename L, typename F>
     void for_each(F&& f)
     {
-      for_each_impl<L>::call(*this, std::forward<F>(f));
+      for_each_impl<H, L>::call(*this, std::forward<F>(f));
     }
   };
 }

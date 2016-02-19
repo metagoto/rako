@@ -13,29 +13,45 @@
 namespace rako
 {
 
-  template <typename...>
-  struct contain;
-  template <typename L, typename... Ts>
-  struct contain<L, meta::list<Ts...>>
-    : std::integral_constant<bool, (meta::in<typename L::comp_list, Ts>::value && ...) &&
-                                     L::comp_list::size() == meta::list<Ts...>::size()>
+  namespace impl
   {
-  };
+    template <typename...>
+    struct is_group;
+    template <typename L, typename... Ts>
+    struct is_group<L, meta::list<Ts...>>
+      : std::integral_constant<bool, (meta::in<typename L::comp_list, Ts>::value && ...) &&
+                                       L::comp_list::size() == meta::list<Ts...>::size()>
+    {
+    };
 
-  template <typename...>
-  struct comp_pred;
-  template <typename T, typename... Ts>
-  struct comp_pred<T, meta::list<Ts...>>
-    : std::integral_constant<bool, (meta::in<typename T::comp_list, Ts>::value && ...)>
-  {
-  };
+    template <typename...>
+    struct is_comp;
+    template <typename T, typename... Ts>
+    struct is_comp<T, meta::list<Ts...>>
+      : std::integral_constant<bool, (meta::in<typename T::comp_list, Ts>::value && ...)>
+    {
+    };
+
+
+    template <typename...>
+    struct group_id_expand;
+    template <typename Traits, std::size_t... Is, typename... Ts>
+    struct group_id_expand<Traits, std::index_sequence<Is...>, Ts...>
+    {
+      using type = std::tuple<component_group<Is, Ts, component_group_traits>...>;
+    };
+  }
+
 
 
   template <typename... CGLs> // meta::list<T1,T2>, meta::list<T1,T3>
   struct entity_group_manager
   {
-    using group_tuple =
-      std::tuple<component_group<CGLs, component_group_traits>...>; /// TODO: traits!
+    // using group_tuple =
+    //  std::tuple<component_group<CGLs, component_group_traits>...>; /// TODO: traits!
+    using group_tuple = typename impl::group_id_expand<component_group_traits,
+      std::index_sequence_for<CGLs...>, CGLs...>::type;
+
     using group_list = meta::as_list<group_tuple>;
 
     using handle = typename std::tuple_element<0, group_tuple>::type::handle;
@@ -56,7 +72,7 @@ namespace rako
     {
       using CL = meta::list<std::decay_t<Ts>...>;
       using meta::placeholders::_a;
-      using cgl = meta::find_if<group_list, meta::lambda<_a, contain<_a, CL>>>;
+      using cgl = meta::find_if<group_list, meta::lambda<_a, impl::is_group<_a, CL>>>;
       using cg = meta::front<cgl>;
       constexpr auto i = group_list::size() - cgl::size();
       auto h = std::get<cg>(groups).add(std::move(t));
@@ -69,7 +85,7 @@ namespace rako
     {
       using CL = meta::list<std::decay_t<Ts>...>;
       using meta::placeholders::_a;
-      using cgl = meta::find_if<group_list, meta::lambda<_a, contain<_a, CL>>>;
+      using cgl = meta::find_if<group_list, meta::lambda<_a, impl::is_group<_a, CL>>>;
       using cg = meta::front<cgl>;
       constexpr auto i = group_list::size() - cgl::size();
       auto h = std::get<cg>(groups).add(t);
@@ -82,7 +98,7 @@ namespace rako
     {
       using CL = meta::list<std::decay_t<Ts>...>;
       using meta::placeholders::_a;
-      using cgl = meta::find_if<group_list, meta::lambda<_a, contain<_a, CL>>>;
+      using cgl = meta::find_if<group_list, meta::lambda<_a, impl::is_group<_a, CL>>>;
       using cg = meta::front<cgl>;
       constexpr auto i = group_list::size() - cgl::size();
       auto h = std::get<cg>(groups).add(t);
@@ -195,16 +211,38 @@ namespace rako
 
 
 
+    //    ///
+    //    template <typename...>
+    //    struct for_each_impl;
+    //    template <typename... Cs, typename T>
+    //    struct for_each_impl<meta::list<Cs...>, T>
+    //    {
+    //      template <typename Self, typename F>
+    //      static void call(Self& self, F&& f)
+    //      {
+    //        (std::get<Cs>(self.groups).template for_each<T>(std::forward<F>(f)), ...);
+    //      }
+    //    };
+
+    //    template <typename L, typename F>
+    //    void for_each(F&& f)
+    //    {
+    //      using meta::placeholders::_a;
+    //      using C = meta::filter<group_list, meta::lambda<_a, impl::is_comp<_a, L>>>;
+    //      for_each_impl<C, L>::call(*this, std::forward<F>(f));
+    //    }
+
+
     ///
-    template <typename...>
+    template <bool, typename...>
     struct for_each_impl;
-    template <typename... Cs, typename T>
-    struct for_each_impl<meta::list<Cs...>, T>
+    template <bool H, typename... Cs, typename T>
+    struct for_each_impl<H, meta::list<Cs...>, T>
     {
       template <typename Self, typename F>
       static void call(Self& self, F&& f)
       {
-        (std::get<Cs>(self.groups).template for_each<T>(std::forward<F>(f)), ...);
+        (std::get<Cs>(self.groups).template for_each<H, T>(std::forward<F>(f)), ...);
       }
     };
 
@@ -212,21 +250,10 @@ namespace rako
     void for_each(F&& f)
     {
       using meta::placeholders::_a;
-      using C = meta::filter<group_list, meta::lambda<_a, comp_pred<_a, L>>>;
-      for_each_impl<C, L>::call(*this, std::forward<F>(f));
+      using H = meta::in<L, handle>;
+      using LL = meta::filter<L, meta::lambda<_a, meta::lazy::not_<std::is_same<_a, handle>>>>;
+      using C = meta::filter<group_list, meta::lambda<_a, impl::is_comp<_a, LL>>>;
+      for_each_impl<H{}, C, LL>::call(*this, std::forward<F>(f));
     }
-
-
-//    void test()
-//    {
-//      tuple_apply_index(groups, [](auto& g, auto const)
-//        {
-//          using cl = typename std::decay_t<decltype(g)>::comp_list;
-//          g.template for_each<cl>([](auto& p, auto& a, auto& n)
-//            {
-//              cout << p.x << " " << p.y << " " << a.x << " " << a.y << " " << n.name << "\n";
-//            });
-//        });
-//    }
   };
 }

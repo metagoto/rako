@@ -5,11 +5,12 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
+#include <iostream>
+
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 #include <rako/entity_group_manager.hpp>
 
-#include <iostream>
 
 using namespace rako;
 
@@ -82,8 +83,6 @@ struct game
     for (int i = 0; i < 1000; ++i) {
       float x = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
       float y = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
-      // comp::body b = {{x * 400 + 400, y * 300 + 300}, {x * 80.f, y * 80.f}, {0, 0}};
-      // comp::body b = {{x * 400 + 400, y * 300 + 300}, {0.f, 0.f}, {0., 0.}};
 
       comp::sprite sp;
       sp.obj.setTexture(texture);

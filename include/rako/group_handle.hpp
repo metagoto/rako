@@ -39,5 +39,11 @@ namespace rako
     groupid_t gid = ngrp;
     template <typename...>
     friend class entity_group_manager;
+
+    friend bool operator==(group_handle const& a, group_handle const& b)
+    {
+      return a.index() == b.index() && a.counter() == b.counter() && a.group() == b.group();
+    }
+    friend bool operator!=(group_handle const& a, group_handle const& b) { return !(a == b); }
   };
 }

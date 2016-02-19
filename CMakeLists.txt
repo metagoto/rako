@@ -47,6 +47,6 @@ macro(add_with_sfml NAME SRC)
   target_link_libraries(${PROJECT_NAME} ${SFML_LIBS})
 endmacro()
 
-#add_subdirectory(test)
+add_subdirectory(test)
 add_subdirectory(example)
 
