@@ -33,11 +33,9 @@ namespace rako
     auto valid() const { return ctr != nctr; }
     auto invalidate() { ctr = nctr; }
   private:
-    // auto set_group(groupid_t g) { gid = g; }
     index_t idx = npos;
     counter_t ctr = nctr;
     groupid_t gid = ngrp;
-    // template <typename...> friend class entity_group_manager;
 
     friend bool operator==(group_handle const& a, group_handle const& b)
     {
