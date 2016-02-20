@@ -32,7 +32,6 @@ namespace rako
     {
     };
 
-
     template <typename...>
     struct group_id_expand;
     template <typename Traits, std::size_t... Is, typename... Ts>
@@ -123,6 +122,7 @@ namespace rako
 
     void reclaim()
     {
+      if (killed.empty()) return;
       std::for_each(std::begin(killed), std::end(killed), [this](auto& h)
         {
           remove(h);
@@ -159,6 +159,18 @@ namespace rako
     //  {
     //    return entity.size();
     //  }
+    template <typename...>
+    struct size_impl;
+    template <typename... Ts>
+    struct size_impl<std::tuple<Ts...>>
+    {
+      template <typename Self>
+      static auto call(Self const& self)
+      {
+        return (std::get<Ts>(self.groups).size() + ...);
+      }
+    };
+    auto size() const { return size_impl<group_tuple>::call(*this); }
 
 
     ///

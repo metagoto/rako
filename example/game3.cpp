@@ -80,7 +80,7 @@ struct game
 
   void make_particles()
   {
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 100; ++i) {
       float x = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
       float y = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
 
@@ -147,7 +147,7 @@ struct game
       });
 
     auto const ws = win.getSize();
-    auto const radius = 16.f;
+    auto const radius = 14.f;
     em.for_each<meta::list<comp::pos, comp::vel>>([ws, radius](auto const& p, auto& v)
       {
         if (p.pos.x <= 0) v.vel.x *= -1;
@@ -155,6 +155,24 @@ struct game
         if (p.pos.y <= 0) v.vel.y *= -1;
         if (p.pos.y + radius >= ws.y) v.vel.y *= -1;
       });
+
+    em.for_each<meta::list<egm_t::handle, comp::pos, comp::vel>>(
+      [this, ts](auto h1, auto& p, auto& v)
+      {
+        em.for_each<meta::list<egm_t::handle, comp::pos, comp::vel>>([&](auto h2, auto& q, auto& w)
+          {
+            if (h1 == h2) return;
+            sf::Rect<float> r1 = {p.pos.x, p.pos.y, 14, 14};
+            sf::Rect<float> r2 = {q.pos.x, q.pos.y, 14, 14};
+            if (r1.intersects(r2)) {
+              v.vel *= -1.f;
+              w.vel *= -1.f;
+              p.pos += v.vel * ts;
+              q.pos += w.vel * ts;
+            }
+          });
+      });
+
 
     em.for_each<meta::list<comp::pos, comp::rect>>([](auto const& p, auto& o)
       {
@@ -164,6 +182,8 @@ struct game
       {
         o.obj.setPosition(p.pos);
       });
+
+    em.reclaim();
   }
 
   void render()
@@ -188,7 +208,8 @@ struct game
     stats_frames += 1;
     if (stats_time >= sf::seconds(1.0f)) {
       stats_text.setString("fps: " + std::to_string(stats_frames) + "\n" + "time / update: " +
-                           std::to_string(stats_time.asMicroseconds() / stats_frames) + "us");
+                           std::to_string(stats_time.asMicroseconds() / stats_frames) + "us\n" +
+                           "#entities: " + std::to_string(em.size()));
 
       std::get<0>(stats_fps) = (std::get<0>(stats_fps) + stats_frames) / 2;
       if (std::get<1>(stats_fps) > stats_frames) std::get<1>(stats_fps) = stats_frames;
