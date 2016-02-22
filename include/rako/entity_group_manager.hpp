@@ -103,11 +103,29 @@ namespace rako
     void remove(handle& h)
     {
       if (!valid(h)) return;
-      constexpr auto s = std::tuple_size<group_tuple>::value;
-      remove_dispatch(h, std::make_index_sequence<s>{});
+      remove_dispatch(h, group_index_seq{});
     }
 
     ///
+    template <typename...>
+    struct size_impl;
+    template <typename... Ts>
+    struct size_impl<std::tuple<Ts...>>
+    {
+      template <typename Self>
+      static auto call(Self const& self)
+      {
+        return (std::get<Ts>(self.groups).size() + ...);
+      }
+    };
+    auto size() const { return size_impl<group_tuple>::call(*this); }
+
+    ///
+    bool alive(handle const& h) const
+    {
+      return valid(h) && std::find(std::begin(killed), std::end(killed), h) == std::end(killed);
+    }
+
     void kill(handle const& h) // TODO: multiple kill
     {
       killed.push_back(h);
@@ -136,26 +154,6 @@ namespace rako
       return (this->*(a[h.group()]))(groups, h);
     }
     auto valid(handle const& h) const { return valid_dispatch(h, group_index_seq{}); }
-
-    ///
-    bool alive(handle const& h) const
-    {
-      return valid(h) && std::find(std::begin(killed), std::end(killed), h) == std::end(killed);
-    }
-
-    ///
-    template <typename...>
-    struct size_impl;
-    template <typename... Ts>
-    struct size_impl<std::tuple<Ts...>>
-    {
-      template <typename Self>
-      static auto call(Self const& self)
-      {
-        return (std::get<Ts>(self.groups).size() + ...);
-      }
-    };
-    auto size() const { return size_impl<group_tuple>::call(*this); }
 
     ///
     template <typename T, std::size_t I>
@@ -205,7 +203,6 @@ namespace rako
         (std::get<Cs>(self.groups).template for_each<Handle, T>(std::forward<F>(f)), ...);
       }
     };
-
     template <typename L, typename F>
     void for_each(F&& f)
     {
