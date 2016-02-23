@@ -56,7 +56,7 @@ struct game
     , stats_frames(0)
     , texture()
     , stats_fps(std::make_tuple(0, 10000, 0))
-    , qt(0, 0, 800, 600, 0)
+    , qt(0, 0, 800, 600)
   {
     win.setKeyRepeatEnabled(false);
     font.loadFromFile("media/Sansation.ttf");
@@ -82,7 +82,7 @@ struct game
 
   void make_particles()
   {
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 200; ++i) {
       float x = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
       float y = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
 
@@ -192,6 +192,8 @@ struct game
 
 
     qt.clear();
+    //qt.reset(0, 0, ws.x, ws.y);
+
     em.for_each<meta::list<egm_t::handle, comp::pos>>([this, ts](auto h1, auto const& p)
       {
         qt.insert(h1, p.pos.x, p.pos.y);
