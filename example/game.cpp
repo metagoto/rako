@@ -172,11 +172,11 @@ struct game
         b.vel += b.accel * ts;
         b.pos += b.vel * ts;
       });
-    em.for_each_matching<sig::render_sprite>([ts](auto, auto const& b, auto& o)
+    em.for_each_matching<sig::render_sprite>([/*ts*/](auto, auto const& b, auto& o)
       {
         o.obj.setPosition(b.pos);
       });
-    em.for_each_matching<sig::render_rect>([ts](auto, auto const& b, auto& o)
+    em.for_each_matching<sig::render_rect>([/*ts*/](auto, auto const& b, auto& o)
       {
         o.obj.setPosition(b.pos);
       });

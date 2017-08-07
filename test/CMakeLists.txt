@@ -10,5 +10,8 @@
 
 #add_executable(bench bench.cpp)
 
-add_executable(entity_group_manager entity_group_manager.cpp)
-add_test(entity_group_manager, entity_group_manager)
+#add_executable(entity_group_manager entity_group_manager.cpp)
+#add_test(entity_group_manager, entity_group_manager)
+
+add_executable(handle_array handle_array.cpp)
+add_test(handle_array, handle_array)
