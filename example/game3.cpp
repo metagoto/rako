@@ -7,45 +7,36 @@
 
 #include <iostream>
 
-#include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
+#include <SFML/Window.hpp>
 #include <rako/entity_group_manager.hpp>
-
 
 using namespace rako;
 
-namespace comp
-{
-  struct pos
-  {
+namespace comp {
+  struct pos {
     sf::Vector2f pos;
   };
-  struct vel
-  {
+  struct vel {
     sf::Vector2f vel;
   };
-  struct accel
-  {
+  struct accel {
     sf::Vector2f accel;
   };
-  struct rect
-  {
+  struct rect {
     sf::RectangleShape obj;
   };
-  struct sprite
-  {
+  struct sprite {
     sf::Sprite obj;
   };
-}
+}  // namespace comp
 
 using plyr = meta::list<comp::pos, comp::vel, comp::accel, comp::rect>;
 using part = meta::list<comp::pos, comp::vel, comp::accel, comp::sprite>;
 
 using egm_t = entity_group_manager<plyr, part>;
 
-
-struct game
-{
+struct game {
 
   game()
     : win(sf::VideoMode(800, 600), "rako", sf::Style::Titlebar | sf::Style::Close)
@@ -54,8 +45,7 @@ struct game
     , stats_time()
     , stats_frames(0)
     , texture()
-    , stats_fps(std::make_tuple(0, 10000, 0))
-  {
+    , stats_fps(std::make_tuple(0, 10000, 0)) {
     win.setKeyRepeatEnabled(false);
     font.loadFromFile("media/Sansation.ttf");
     stats_text.setFont(font);
@@ -68,8 +58,7 @@ struct game
     make_particles();
   }
 
-  void make_player()
-  {
+  void make_player() {
     comp::rect r;
     r.obj.setFillColor(sf::Color::Red);
     r.obj.setSize({10.f, 10.f});
@@ -78,8 +67,7 @@ struct game
       em.add(comp::pos{{100.f, 100.f}}, comp::vel{{0.f, 0.f}}, comp::accel{{0.f, 0.f}}, r);
   }
 
-  void make_particles()
-  {
+  void make_particles() {
     for (int i = 0; i < 100; ++i) {
       float x = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
       float y = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
@@ -87,12 +75,11 @@ struct game
       comp::sprite sp;
       sp.obj.setTexture(texture);
       em.add(comp::pos{{x * 400 + 400, y * 300 + 300}}, comp::vel{{x * 150.f, y * 150.f}},
-        comp::accel{{0, 0}}, sp);
+             comp::accel{{0, 0}}, sp);
     }
   }
 
-  void run()
-  {
+  void run() {
     static auto tpf = sf::seconds(1.f / 60.f);
     sf::Clock clock;
     sf::Time time_since_last_update = sf::Time::Zero;
@@ -109,8 +96,7 @@ struct game
     }
   }
 
-  void process_input()
-  {
+  void process_input() {
     sf::Event event;
     while (win.pollEvent(event)) {
       handle_event(event);
@@ -118,14 +104,11 @@ struct game
     }
   }
 
-  void handle_event(sf::Event event)
-  {
-    if (event.type == sf::Event::KeyPressed) {
-    }
+  void handle_event(sf::Event event) {
+    if (event.type == sf::Event::KeyPressed) {}
   }
 
-  void update(sf::Time t)
-  {
+  void update(sf::Time t) {
 
     ///
     sf::Vector2f a = {0, 0};
@@ -140,70 +123,53 @@ struct game
 
     auto const ts = t.asSeconds();
 
-    em.for_each<meta::list<comp::pos, comp::vel, comp::accel>>([ts](auto& p, auto& v, auto& a)
-      {
-        v.vel += a.accel * ts;
-        p.pos += v.vel * ts;
-      });
+    em.for_each<meta::list<comp::pos, comp::vel, comp::accel>>([ts](auto& p, auto& v, auto& a) {
+      v.vel += a.accel * ts;
+      p.pos += v.vel * ts;
+    });
 
     auto const ws = win.getSize();
     auto const radius = 14.f;
-    em.for_each<meta::list<comp::pos, comp::vel>>([ws, radius](auto const& p, auto& v)
-      {
-        if (p.pos.x <= 0) v.vel.x *= -1;
-        if (p.pos.x + radius >= ws.x) v.vel.x *= -1;
-        if (p.pos.y <= 0) v.vel.y *= -1;
-        if (p.pos.y + radius >= ws.y) v.vel.y *= -1;
-      });
+    em.for_each<meta::list<comp::pos, comp::vel>>([ws, radius](auto const& p, auto& v) {
+      if (p.pos.x <= 0) v.vel.x *= -1;
+      if (p.pos.x + radius >= ws.x) v.vel.x *= -1;
+      if (p.pos.y <= 0) v.vel.y *= -1;
+      if (p.pos.y + radius >= ws.y) v.vel.y *= -1;
+    });
 
-    em.for_each<meta::list<egm_t::handle, comp::pos, comp::vel>>(
-      [this, ts](auto h1, auto& p, auto& v)
-      {
-        em.for_each<meta::list<egm_t::handle, comp::pos, comp::vel>>([&](auto h2, auto& q, auto& w)
-          {
-            if (h1 == h2) return;
-            sf::Rect<float> r1 = {p.pos.x, p.pos.y, 14, 14};
-            sf::Rect<float> r2 = {q.pos.x, q.pos.y, 14, 14};
-            if (r1.intersects(r2)) {
-              v.vel *= -1.f;
-              w.vel *= -1.f;
-              p.pos += v.vel * ts;
-              q.pos += w.vel * ts;
-            }
-          });
+    em.for_each<meta::list<egm_t::handle, comp::pos, comp::vel>>([this, ts](auto h1, auto& p,
+                                                                            auto& v) {
+      em.for_each<meta::list<egm_t::handle, comp::pos, comp::vel>>([&](auto h2, auto& q, auto& w) {
+        if (h1 == h2) return;
+        sf::Rect<float> r1 = {p.pos.x, p.pos.y, 14, 14};
+        sf::Rect<float> r2 = {q.pos.x, q.pos.y, 14, 14};
+        if (r1.intersects(r2)) {
+          v.vel *= -1.f;
+          w.vel *= -1.f;
+          p.pos += v.vel * ts;
+          q.pos += w.vel * ts;
+        }
       });
+    });
 
-
-    em.for_each<meta::list<comp::pos, comp::rect>>([](auto const& p, auto& o)
-      {
-        o.obj.setPosition(p.pos);
-      });
-    em.for_each<meta::list<comp::pos, comp::sprite>>([](auto const& p, auto& o)
-      {
-        o.obj.setPosition(p.pos);
-      });
+    em.for_each<meta::list<comp::pos, comp::rect>>(
+      [](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
+    em.for_each<meta::list<comp::pos, comp::sprite>>(
+      [](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
 
     em.reclaim();
   }
 
-  void render()
-  {
+  void render() {
     win.clear();
-    em.for_each<meta::list<comp::sprite>>([this](auto const& o)
-      {
-        win.draw(o.obj);
-      });
-    em.for_each<meta::list<comp::rect>>([this](auto const& o)
-      {
-        win.draw(o.obj);
-      });
+    em.for_each<meta::list<comp::sprite>>([this](auto const& o) { win.draw(o.obj); });
+    em.for_each<meta::list<comp::rect>>([this](auto const& o) { win.draw(o.obj); });
 
     win.draw(stats_text);
     win.display();
   }
 
-  void update_stats(sf::Time elapsed_time)
-  {
+  void update_stats(sf::Time elapsed_time) {
     stats_time += elapsed_time;
     stats_frames += 1;
     if (stats_time >= sf::seconds(1.0f)) {
@@ -220,8 +186,7 @@ struct game
     }
   }
 
-  ~game()
-  {
+  ~game() {
     std::cout << "stats: " << std::get<0>(stats_fps) << " " << std::get<1>(stats_fps) << " "
               << std::get<2>(stats_fps) << " " << std::endl;
   }
@@ -233,12 +198,11 @@ struct game
   std::size_t stats_frames;
   egm_t em;
   sf::Texture texture;
-  std::tuple<std::size_t, std::size_t, std::size_t> stats_fps; // av, min, max
+  std::tuple<std::size_t, std::size_t, std::size_t> stats_fps;  // av, min, max
   egm_t::handle player_handle;
 };
 
-int main()
-{
+int main() {
   game g;
   g.run();
 

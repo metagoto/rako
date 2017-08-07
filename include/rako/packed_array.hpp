@@ -1,16 +1,14 @@
 #pragma once
 
 #include <cassert>
+#include <rako/handle.hpp>
+#include <rako/packed_array_traits.hpp>
 #include <tuple>
 #include <type_traits>
-#include <rako/packed_array_traits.hpp>
-#include <rako/handle.hpp>
 
-namespace rako
-{
+namespace rako {
   template <typename T, typename Traits = packed_array_traits>
-  struct packed_array
-  {
+  struct packed_array {
     using self_t = packed_array<T, Traits>;
     using value_type = T;
 
@@ -21,8 +19,7 @@ namespace rako
     constexpr static auto npos = handle_t::npos;
     constexpr static auto nctr = handle_t::nctr;
 
-    struct item
-    {
+    struct item {
       index_t idx = npos;
       counter_t ctr = nctr;
       index_t next_free = npos;
@@ -43,15 +40,13 @@ namespace rako
     auto* data() { return data_array.data(); }
     auto const* data() const { return data_array.data(); }
 
-    auto valid(handle const& h) const
-    {
+    auto valid(handle const& h) const {
       if (h.counter() == nctr) return false;
       auto i = h.index();
       return i < item_array.size() && h.counter() == item_array[i].ctr;
     }
 
-    auto next_free_idx()
-    {
+    auto next_free_idx() {
       if (next_free == npos) {
         auto s = item_array.size();
         item_array.resize(s + 1);
@@ -61,8 +56,7 @@ namespace rako
       return next_free;
     }
 
-    auto grow()
-    {
+    auto grow() {
       auto i = next_free_idx();
       assert(item_array[i].ctr == nctr);
       next_free = item_array[i].next_free;
@@ -74,28 +68,24 @@ namespace rako
     }
 
     template <typename... Args>
-    auto emplace(Args&&... args)
-    {
+    auto emplace(Args&&... args) {
       auto h = grow();
       new (&data_array[sz++]) value_type(std::forward<Args>(args)...);
       return h;
     }
 
-    auto push(value_type&& v)
-    {
+    auto push(value_type&& v) {
       auto h = grow();
       data_array[sz++] = std::move(v);
       return h;
     }
-    auto push(value_type const& v)
-    {
+    auto push(value_type const& v) {
       auto h = grow();
       data_array[sz++] = v;
       return h;
     }
 
-
-    auto erase(handle& h) // erase handle... h
+    auto erase(handle& h)  // erase handle... h
     {
       auto i = h.index();
       assert(i < item_array.size());
@@ -117,19 +107,17 @@ namespace rako
       std::swap(item_array[d].table_idx, item_array[sz].table_idx);
     }
 
-    auto const& get(handle const& h) const
-    {
+    auto const& get(handle const& h) const {
       auto i = h.index();
       assert(i < item_array.size());
       assert(h.counter() == item_array[i].ctr && h.counter() != nctr);
       return data_array[item_array[i].idx];
     }
-    auto& get(handle const& h)
-    {
+    auto& get(handle const& h) {
       auto i = h.index();
       assert(i < item_array.size());
       assert(h.counter() == item_array[i].ctr && h.counter() != nctr);
       return data_array[item_array[i].idx];
     }
   };
-}
+}  // namespace rako

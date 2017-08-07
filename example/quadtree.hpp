@@ -1,29 +1,24 @@
 #pragma once
 
+#include <SFML/Graphics.hpp>
+#include <algorithm>
 #include <cassert>
 #include <vector>
-#include <algorithm>
-#include <SFML/Graphics.hpp>
 
-
-namespace rako
-{
+namespace rako {
 
   template <typename T>
-  struct tmpcont
-  {
+  struct tmpcont {
     using cont_t = std::vector<T>;
 
     cont_t cont;
 
-    void insert(T t)
-    {
+    void insert(T t) {
       auto i = find(t);
       if (i == cont.end()) cont.push_back(t);
     }
 
-    void remove(T t)
-    {
+    void remove(T t) {
       auto i = find(t);
       if (i != cont.end()) cont.erase(i);
     }
@@ -34,28 +29,23 @@ namespace rako
 
     auto size() const { return cont.size(); }
 
-    template<typename F>
-    auto test(F&& f)
-    {
+    template <typename F>
+    auto test(F&& f) {
       for (auto const& p : cont) {
         auto const& nodes = p->test();
-        //for (auto& data : nodes) {
-          std::forward<F>(f)(nodes);
+        // for (auto& data : nodes) {
+        std::forward<F>(f)(nodes);
         //}
       }
     }
   };
 
-
-
   template <typename T, int MaxNode, int MaxLevel>
-  struct qtree
-  {
+  struct qtree {
     using self_t = qtree<T, MaxNode, MaxLevel>;
     using value_type = T;
 
-    struct data
-    {
+    struct data {
       T obj;
       float x, y;
     };
@@ -72,33 +62,30 @@ namespace rako
       , ah(h)
       , level(level)
       , leaf(true)
-      , shape(sf::Vector2f(w, h))
-    {
+      , shape(sf::Vector2f(w, h)) {
       set_shape();
     }
 
     ////
-    auto test() const
-    {
-      return nodes; //// copy
+    auto test() const {
+      return nodes;  //// copy
     }
-
 
     ////
     template <typename C>
-    bool insert(value_type v, float x, float y, C& cont) // also value_type const&
+    bool insert(value_type v, float x, float y, C& cont)  // also value_type const&
     {
       if (x < ax || x > ax + aw || y < ay || y > ay + ah) return false;
       if ((nodes.size() < MaxNode && leaf) || level == MaxLevel) {
         nodes.push_back(data{std::move(v), x, y});
 
-        if (nodes.size() > 2) cont.insert(this); /////
+        if (nodes.size() > 2) cont.insert(this);  /////
 
         return true;
       }
       leaf = false;
 
-      cont.remove(this); /////
+      cont.remove(this);  /////
 
       if (!quad[0]) split(cont);
 
@@ -111,21 +98,18 @@ namespace rako
     }
 
     template <typename C>
-    void split(C& cont)
-    {
+    void split(C& cont) {
       quad[NW].reset(new self_t(ax, ay, aw / 2.f, ah / 2.f, level + 1));
       quad[NE].reset(new self_t(ax + aw / 2.f, ay, aw / 2.f, ah / 2.f, level + 1));
       quad[SE].reset(new self_t(ax + aw / 2.f, ay + ah / 2.f, aw / 2.f, ah / 2.f, level + 1));
       quad[SW].reset(new self_t(ax, ay + ah / 2.f, aw / 2.f, ah / 2.f, level + 1));
-      std::for_each(std::begin(nodes), std::end(nodes), [this, &cont](auto data)
-        {
-          insert(std::move(data.obj), data.x, data.y, cont);
-        });
+      std::for_each(std::begin(nodes), std::end(nodes), [this, &cont](auto data) {
+        insert(std::move(data.obj), data.x, data.y, cont);
+      });
       nodes.clear();
     }
 
-    void clear()
-    {
+    void clear() {
       if (quad[0]) {
         quad[NW]->clear();
         quad[NE]->clear();
@@ -136,8 +120,7 @@ namespace rako
       leaf = true;
     }
 
-    void reset(float x, float y, float w, float h, int lev = 0)
-    {
+    void reset(float x, float y, float w, float h, int lev = 0) {
       if (quad[0]) {
         quad[NW].reset();
         quad[NE].reset();
@@ -153,8 +136,7 @@ namespace rako
       leaf = true;
     }
 
-    void set_shape()
-    {
+    void set_shape() {
       shape.setSize(sf::Vector2f(aw, ah));
       shape.setPosition(ax, ay);
       shape.setOutlineThickness(1.f);
@@ -162,8 +144,7 @@ namespace rako
       shape.setFillColor(sf::Color::Black);
     }
 
-    void draw(sf::RenderTarget& target)
-    {
+    void draw(sf::RenderTarget& target) {
       target.draw(shape);
       if (!leaf && quad[0]) {
         quad[NW]->draw(target);
@@ -183,4 +164,4 @@ namespace rako
     /// TMP
     sf::RectangleShape shape;
   };
-}
+}  // namespace rako

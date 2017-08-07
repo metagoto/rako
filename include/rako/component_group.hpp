@@ -1,20 +1,18 @@
 #pragma once
 
 #include <cassert>
-#include <tuple>
-#include <type_traits>
 #include <meta/meta.hpp>
 #include <rako/group_handle.hpp>
+#include <tuple>
+#include <type_traits>
 
-namespace rako
-{
+namespace rako {
 
   template <std::size_t, typename...>
   struct component_group;
 
   template <std::size_t ID, typename... Components, typename Traits>
-  struct component_group<ID, meta::list<Components...>, Traits>
-  {
+  struct component_group<ID, meta::list<Components...>, Traits> {
     using self_t = component_group<ID, Components..., Traits>;
 
     using index_t = typename Traits::index_t;
@@ -27,7 +25,6 @@ namespace rako
     constexpr static auto ngrp = handle_t::ngrp;
     constexpr static auto self_id = static_cast<groupid_t>(ID);
 
-
     using comp_list = meta::list<Components...>;
     template <typename U>
     using vector_t = typename Traits::template vector_t<U>;
@@ -35,9 +32,7 @@ namespace rako
 
     comp_storage_tuple components;
 
-
-    struct item
-    {
+    struct item {
       index_t idx = npos;
       counter_t ctr = nctr;
       index_t next_free = npos;
@@ -56,9 +51,7 @@ namespace rako
     // auto* data() { return data_array.data(); }
     // auto const* data() const { return data_array.data(); }
 
-
-    auto next_free_idx()
-    {
+    auto next_free_idx() {
       if (next_free == npos) {
         auto s = item_array.size();
         item_array.resize(s + 1);
@@ -68,8 +61,7 @@ namespace rako
       return next_free;
     }
 
-    auto grow()
-    {
+    auto grow() {
       auto i = next_free_idx();
       assert(item_array[i].ctr == nctr);
       next_free = item_array[i].next_free;
@@ -81,30 +73,28 @@ namespace rako
     }
 
     template <typename... Ts>
-    auto add(std::tuple<Ts...>&& t)
-    {
+    auto add(std::tuple<Ts...>&& t) {
       auto h = grow();
       (std::get<vector_t<std::decay_t<Ts>>>(components)
-          .insert(std::next(std::get<vector_t<std::decay_t<Ts>>>(components).begin(), sz),
-            std::move(std::get<Ts>(t))),
-        ...);
+         .insert(std::next(std::get<vector_t<std::decay_t<Ts>>>(components).begin(), sz),
+                 std::move(std::get<Ts>(t))),
+       ...);
       ++sz;
       return h;
     }
 
     template <typename... Ts>
-    auto add(std::tuple<Ts...> const& t)
-    {
+    auto add(std::tuple<Ts...> const& t) {
       auto h = grow();
       (std::get<vector_t<std::decay_t<Ts>>>(components)
-          .insert(std::next(std::get<vector_t<std::decay_t<Ts>>>(components).begin(), sz),
-            std::get<Ts>(t)),
-        ...);
+         .insert(std::next(std::get<vector_t<std::decay_t<Ts>>>(components).begin(), sz),
+                 std::get<Ts>(t)),
+       ...);
       ++sz;
       return h;
     }
 
-    auto erase(handle& h) // handle... h
+    auto erase(handle& h)  // handle... h
     {
       auto i = h.index();
       assert(i < item_array.size());
@@ -119,8 +109,8 @@ namespace rako
       if (--sz == d) return;
 
       (std::swap(std::get<vector_t<Components>>(components)[d],
-         std::get<vector_t<Components>>(components)[sz]),
-        ...);
+                 std::get<vector_t<Components>>(components)[sz]),
+       ...);
 
       auto y = item_array[d].table_idx;
       auto z = item_array[sz].table_idx;
@@ -129,14 +119,12 @@ namespace rako
     }
 
     template <typename T>
-    std::enable_if_t<!meta::in<comp_list, T>::value, T*> get(handle const&)
-    {
+    std::enable_if_t<!meta::in<comp_list, T>::value, T*> get(handle const&) {
       return nullptr;
     }
 
     template <typename T>
-    std::enable_if_t<meta::in<comp_list, T>::value, T*> get(handle const& h)
-    {
+    std::enable_if_t<meta::in<comp_list, T>::value, T*> get(handle const& h) {
       auto i = h.index();
       assert(i < item_array.size());
       assert(h.counter() == item_array[i].ctr && h.counter() != nctr);
@@ -144,53 +132,44 @@ namespace rako
     }
 
     template <typename T>
-    std::enable_if_t<!meta::in<comp_list, T>::value, T const*> get(handle const&) const
-    {
+    std::enable_if_t<!meta::in<comp_list, T>::value, T const*> get(handle const&) const {
       return nullptr;
     }
 
     template <typename T>
-    std::enable_if_t<meta::in<comp_list, T>::value, T const*> get(handle const& h) const
-    {
+    std::enable_if_t<meta::in<comp_list, T>::value, T const*> get(handle const& h) const {
       auto i = h.index();
       assert(i < item_array.size());
       assert(h.counter() == item_array[i].ctr && h.counter() != nctr);
       return &std::get<vector_t<T>>(components)[item_array[i].idx];
     }
 
-
-    bool valid(handle const& h) const
-    {
+    bool valid(handle const& h) const {
       if (h.counter() == nctr) return false;
       auto i = h.index();
       return i < item_array.size() && h.counter() == item_array[i].ctr;
     }
 
-
     ///
     template <bool H, typename...>
     struct for_each_impl;
     template <typename... Ts>
-    struct for_each_impl<true, meta::list<Ts...>>
-    {
+    struct for_each_impl<true, meta::list<Ts...>> {
       template <typename Self, typename F>
-      static void call(Self& self, F&& f)
-      {
+      static void call(Self& self, F&& f) {
         for (std::size_t i = 0; i < self.sz; ++i) {
           auto id = self.item_array[i].table_idx;
           auto idx = self.item_array[id].idx;
           auto cnt = self.item_array[id].ctr;
-          std::forward<F>(f)(
-            handle(idx, cnt, self_id), std::get<vector_t<Ts>>(self.components)[i]...);
+          std::forward<F>(f)(handle(idx, cnt, self_id),
+                             std::get<vector_t<Ts>>(self.components)[i]...);
         }
       }
     };
     template <typename... Ts>
-    struct for_each_impl<false, meta::list<Ts...>>
-    {
+    struct for_each_impl<false, meta::list<Ts...>> {
       template <typename Self, typename F>
-      static void call(Self& self, F&& f)
-      {
+      static void call(Self& self, F&& f) {
         for (std::size_t i = 0; i < self.sz; ++i) {
           std::forward<F>(f)(std::get<vector_t<Ts>>(self.components)[i]...);
         }
@@ -198,9 +177,8 @@ namespace rako
     };
 
     template <bool H, typename L, typename F>
-    void for_each(F&& f)
-    {
+    void for_each(F&& f) {
       for_each_impl<H, L>::call(*this, std::forward<F>(f));
     }
   };
-}
+}  // namespace rako

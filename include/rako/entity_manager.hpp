@@ -2,45 +2,39 @@
 
 #include <meta/meta.hpp>
 
-#include <tuple>
+#include <algorithm>
 #include <array>
-#include <utility>
 #include <bitset>
 #include <iterator>
-#include <algorithm>
+#include <tuple>
+#include <utility>
 
 #include <rako/packed_array.hpp>
 
-namespace rako
-{
+namespace rako {
 
-  namespace impl
-  {
+  namespace impl {
     template <typename...>
     struct tuple_array_expand;
     template <typename Traits, typename... T>
-    struct tuple_array_expand<Traits, meta::list<T...>>
-    {
+    struct tuple_array_expand<Traits, meta::list<T...>> {
       using type = std::tuple<packed_array<T, Traits>...>;
     };
 
     template <typename T, typename F, std::size_t... I>
-    auto tuple_apply_index_impl(T&& t, F const& f, std::index_sequence<I...>)
-    {
+    auto tuple_apply_index_impl(T&& t, F const& f, std::index_sequence<I...>) {
       return (f(std::get<I>(std::forward<T>(t)), I), ...);
     }
     template <typename T, typename F>
-    auto tuple_apply_index(T&& t, F&& f)
-    {
+    auto tuple_apply_index(T&& t, F&& f) {
       constexpr auto s = std::tuple_size<typename std::decay<T>::type>::value;
-      return tuple_apply_index_impl(
-        std::forward<T>(t), std::forward<F>(f), std::make_index_sequence<s>{});
+      return tuple_apply_index_impl(std::forward<T>(t), std::forward<F>(f),
+                                    std::make_index_sequence<s>{});
     }
-  }
+  }  // namespace impl
 
   template <typename Components, typename Tags = meta::list<>>
-  struct entity_manager
-  {
+  struct entity_manager {
     using component_list = Components;
     using tag_list = Tags;
 
@@ -57,9 +51,8 @@ namespace rako
     constexpr static auto bset_size() { return 1 + component_list::size() + tag_list::size(); }
     using bitset_t = std::bitset<bset_size()>;
 
-    struct data
-    {
-      bitset_t bset; // bset[0] : killed
+    struct data {
+      bitset_t bset;  // bset[0] : killed
       std::array<component_handle_t, component_list::size()> component;
     };
     using entity_array_t = packed_array<data /*, traits*/>;
@@ -79,37 +72,29 @@ namespace rako
     entity_array_t entity;
     std::vector<handle> killed;
 
-
     auto create() { return entity.emplace(); }
 
-    auto& remove(handle& h)
-    {
+    auto& remove(handle& h) {
       if (!entity.valid(h)) return *this;
       auto& d = entity.get(h);
-      impl::tuple_apply_index(component_data, [&d](auto& a, auto const& i)
-        {
-          auto e = d.component[i];
-          if (a.valid(e)) a.erase(e);
-        });
+      impl::tuple_apply_index(component_data, [&d](auto& a, auto const& i) {
+        auto e = d.component[i];
+        if (a.valid(e)) a.erase(e);
+      });
       d.bset.reset();
       entity.erase(h);
       return *this;
     }
 
-    auto& kill(handle const& h)
-    {
+    auto& kill(handle const& h) {
       if (!entity.valid(h)) return *this;
       entity.get(h).bset.set(0);
       killed.push_back(h);
       return *this;
     }
 
-    auto& reclaim()
-    {
-      std::for_each(std::begin(killed), std::end(killed), [this](auto h)
-        {
-          remove(h);
-        });
+    auto& reclaim() {
+      std::for_each(std::begin(killed), std::end(killed), [this](auto h) { remove(h); });
       killed.clear();
       return *this;
     }
@@ -118,16 +103,13 @@ namespace rako
 
     bool alive(handle const& h) const { return valid(h) && !entity.get(h).bset[0]; }
 
-
     template <typename T = void>
-    std::enable_if_t<std::is_same<T, void>::value, std::size_t> size() const
-    {
+    std::enable_if_t<std::is_same<T, void>::value, std::size_t> size() const {
       return entity.size();
     }
 
     template <typename T = void>
-    std::enable_if_t<!std::is_same<T, void>::value, std::size_t> size() const
-    {
+    std::enable_if_t<!std::is_same<T, void>::value, std::size_t> size() const {
       constexpr auto i = index_of_comp<T>{};
       static_assert(i != meta::npos());
       auto& a = std::get<i>(component_data);
@@ -135,8 +117,7 @@ namespace rako
     }
 
     template <typename T>
-    auto& push(handle const& h, T&& comp)
-    {
+    auto& push(handle const& h, T&& comp) {
       constexpr auto i = index_of_comp<T>{};
       static_assert(i != meta::npos());
       auto& a = std::get<i>(component_data);
@@ -148,8 +129,7 @@ namespace rako
     }
 
     template <typename T, typename... Args>
-    auto& emplace(handle const& h, Args&&... args)
-    {
+    auto& emplace(handle const& h, Args&&... args) {
       constexpr auto i = index_of_comp<T>{};
       static_assert(i != meta::npos());
       auto& a = std::get<i>(component_data);
@@ -162,8 +142,7 @@ namespace rako
     }
 
     template <typename T>
-    auto& erase(handle const& h)
-    {
+    auto& erase(handle const& h) {
       constexpr auto i = index_of_comp<T>{};
       static_assert(i != meta::npos());
       auto& d = entity.get(h);
@@ -176,8 +155,7 @@ namespace rako
     }
 
     template <typename T>
-    auto& tag(handle const& h)
-    {
+    auto& tag(handle const& h) {
       constexpr auto i = index_of_tag<T>{};
       static_assert(i != meta::npos());
       auto& d = entity.get(h);
@@ -186,8 +164,7 @@ namespace rako
     }
 
     template <typename T>
-    auto& untag(handle const& h)
-    {
+    auto& untag(handle const& h) {
       constexpr auto i = index_of_tag<T>{};
       static_assert(i != meta::npos());
       auto& d = entity.get(h);
@@ -196,8 +173,7 @@ namespace rako
     }
 
     template <typename T>
-    auto& get(handle const& h)
-    {
+    auto& get(handle const& h) {
       constexpr auto i = index_of_comp<T>{};
       static_assert(i != meta::npos());
       auto& d = entity.get(h);
@@ -208,8 +184,7 @@ namespace rako
     }
 
     template <typename T>
-    auto const& get(handle const& h) const
-    {
+    auto const& get(handle const& h) const {
       constexpr auto i = index_of_comp<T>{};
       static_assert(i != meta::npos());
       auto& d = entity.get(h);
@@ -220,16 +195,14 @@ namespace rako
     }
 
     template <typename... T>
-    bool has(handle const& h) const
-    {
+    bool has(handle const& h) const {
       static_assert(((index_of_all<T>{} != meta::npos()) && ...));
       auto const& d = entity.get(h);
       return (d.bset[bset_all_index(index_of_all<T>{})] && ...);
     }
 
     template <typename T>
-    auto* data()
-    {
+    auto* data() {
       constexpr auto i = index_of_comp<T>{};
       static_assert(i != meta::npos());
       auto& a = std::get<i>(component_data);
@@ -237,8 +210,7 @@ namespace rako
     }
 
     template <typename F>
-    auto for_each(F&& f) const
-    {
+    auto for_each(F&& f) const {
       for (auto const& e : entity.item_array) {
         if (e.ctr != handle::nctr) std::forward<F>(f)(handle(e.idx, e.ctr));
       }
@@ -247,12 +219,10 @@ namespace rako
     template <typename...>
     struct for_each_matching_impl;
     template <typename... T, typename... C>
-    struct for_each_matching_impl<meta::list<T...>, meta::list<C...>>
-    {
+    struct for_each_matching_impl<meta::list<T...>, meta::list<C...>> {
       static_assert(((index_of_all<T>{} != meta::npos()) && ...));
       template <typename S, typename F, typename H>
-      static auto call(S&& self, F&& f, H const& h)
-      {
+      static auto call(S&& self, F&& f, H const& h) {
         auto const& d = std::forward<S>(self).entity.get(h);
         if ((d.bset[bset_all_index(index_of_all<T>{})] && ...)) {
           std::forward<F>(f)(h, std::forward<S>(self).template get<C>(h)...);
@@ -261,12 +231,10 @@ namespace rako
     };
 
     template <typename T>
-    struct comp_pred : std::integral_constant<bool, index_of_comp<T>{} != meta::npos()>
-    {
-    };
+    struct comp_pred : std::integral_constant<bool, index_of_comp<T>{} != meta::npos()> {};
 
     template <typename L, typename F>
-    auto for_each_matching(F&& f) // TODO: merge const and non const
+    auto for_each_matching(F&& f)  // TODO: merge const and non const
     {
       using C = meta::filter<L, meta::quote<comp_pred>>;
       for (auto const& e : entity.item_array) {
@@ -276,8 +244,7 @@ namespace rako
       }
     }
     template <typename L, typename F>
-    auto for_each_matching(F&& f) const
-    {
+    auto for_each_matching(F&& f) const {
       using C = meta::filter<L, meta::quote<comp_pred>>;
       for (auto const& e : entity.item_array) {
         if (e.ctr != handle::nctr) {
@@ -286,4 +253,4 @@ namespace rako
       }
     }
   };
-}
+}  // namespace rako

@@ -3,27 +3,22 @@
 #pragma clang diagnostic ignored "-Wfloat-conversion"
 #pragma clang diagnostic ignored "-Wfloat-equal"
 #endif
+#include <rako/entity_manager.hpp>
 #include "./simple_test.hpp"
 #include "./timer.hpp"
-#include <rako/entity_manager.hpp>
 
 using namespace rako;
 using std::cout;
 using std::endl;
 
 //
-struct pos
-{
+struct pos {
   pos()
     : x(0)
-    , y(0)
-  {
-  }
+    , y(0) {}
   pos(int x, int y)
     : x(x)
-    , y(y)
-  {
-  }
+    , y(y) {}
   pos(pos const&) = default;
   pos(pos&&) = default;
   pos& operator=(pos const&) = default;
@@ -32,20 +27,15 @@ struct pos
   int x, y;
 };
 
-struct body
-{
+struct body {
   body()
     : x(0)
     , y(0)
-    , vel(0)
-  {
-  }
+    , vel(0) {}
   body(int x, int y, int v)
     : x(x)
     , y(y)
-    , vel(v)
-  {
-  }
+    , vel(v) {}
   body(body const&) = default;
   body(body&&) = default;
   body& operator=(body const&) = default;
@@ -54,8 +44,7 @@ struct body
   int x, y, vel;
 };
 
-auto test_blah()
-{
+auto test_blah() {
   using l = meta::list<int, double, pos>;
 
   entity_manager<l> em;
@@ -106,8 +95,7 @@ auto test_blah()
   CHECK(!em.valid(h));
 }
 
-auto test_blah2()
-{
+auto test_blah2() {
   srand(static_cast<unsigned>(time(0)));
 
   using l = meta::list<body>;
@@ -121,8 +109,7 @@ auto test_blah2()
   }
 }
 
-auto test_blah3()
-{
+auto test_blah3() {
   entity_manager<meta::list<int, double, std::string>> em;
 
   auto z = em.create();
@@ -209,8 +196,7 @@ auto test_blah3()
   }
 }
 
-auto test_reclaim()
-{
+auto test_reclaim() {
   using l = meta::list<int, double, pos>;
 
   entity_manager<l> em;
@@ -258,8 +244,7 @@ auto test_reclaim()
   CHECK(em.size() == 0ul);
 }
 
-auto test_reclaim2()
-{
+auto test_reclaim2() {
   using l = meta::list<int, double, pos>;
 
   entity_manager<l> em;
@@ -274,7 +259,6 @@ auto test_reclaim2()
   //  CHECK(em.valid(h));
   //  CHECK(em.alive(h));
   //  CHECK(em.size() == 1ul);
-
 
   em.kill(h);
   CHECK(em.valid(h));
@@ -306,15 +290,10 @@ auto test_reclaim2()
   CHECK(!em.alive(h));
 }
 
-struct tag1
-{
-};
-struct tag2
-{
-};
+struct tag1 {};
+struct tag2 {};
 
-auto test_blah4()
-{
+auto test_blah4() {
   using L = meta::list<int, body>;
   using T = meta::list<tag1, tag2>;
   {
@@ -348,35 +327,27 @@ auto test_blah4()
     CHECK(i == num_iter);
 
     int tot = 0;
-    em.for_each([&](auto e)
-      {
-        tot += em.get<body>(e).x;
-      });
+    em.for_each([&](auto e) { tot += em.get<body>(e).x; });
     CHECK(tot == 45);
     auto h = em.create();
     em.emplace<int>(h, 1);
     tot = 0;
-    em.for_each([&](auto e)
-      {
-        if (em.has<body>(e)) tot += em.get<body>(e).x;
-      });
+    em.for_each([&](auto e) {
+      if (em.has<body>(e)) tot += em.get<body>(e).x;
+    });
     CHECK(tot == 45);
     em.emplace<body>(h, 1, 2, 3);
     tot = 0;
-    em.for_each([&](auto e)
-      {
-        tot += em.get<body>(e).y;
-      });
+    em.for_each([&](auto e) { tot += em.get<body>(e).y; });
     CHECK(tot == 452);
     em.erase<body>(h);
     tot = 0;
-    em.for_each([&](auto e)
-      {
-        if (em.has<body>(e)) {
-          tot += em.get<body>(e).y;
-          em.get<body>(e).vel += 10;
-        }
-      });
+    em.for_each([&](auto e) {
+      if (em.has<body>(e)) {
+        tot += em.get<body>(e).y;
+        em.get<body>(e).vel += 10;
+      }
+    });
     CHECK(tot == 450);
 
     h = em.create();
@@ -384,20 +355,16 @@ auto test_blah4()
     em.emplace<body>(h, 10, 20, 30);
     em.tag<tag1>(h);
     using sig = meta::list<body, int>;
-    em.for_each_matching<sig>([](auto, auto& b, auto& i)
-      {
-        ++b.x;
-        ++i;
-      });
+    em.for_each_matching<sig>([](auto, auto& b, auto& i) {
+      ++b.x;
+      ++i;
+    });
     CHECK(em.get<body>(h).x == 11);
     CHECK(em.get<int>(h) == 43);
 
     tot = 0;
     using sig2 = meta::list<tag1>;
-    em.for_each_matching<sig2>([&](auto)
-      {
-        ++tot;
-      });
+    em.for_each_matching<sig2>([&](auto) { ++tot; });
     CHECK(tot == 1);
   }
   {
@@ -408,19 +375,13 @@ auto test_blah4()
     em.tag<tag1>(h);
     using sig = meta::list<body, int>;
 
-    [](auto const& e)
-    {
-      e.template for_each_matching<sig>([](auto, auto const& /*b*/, auto const& /*i*/)
-        {
-        });
+    [](auto const& e) {
+      e.template for_each_matching<sig>([](auto, auto const& /*b*/, auto const& /*i*/) {});
     }(em);
   }
 }
 
-
-
-auto test_blah5()
-{
+auto test_blah5() {
   using C = meta::list<int, body>;
   using T = meta::list<tag1, tag2>;
 
@@ -442,8 +403,7 @@ auto test_blah5()
   CHECK(!em.has<tag1>(h));
 }
 
-auto test_blah6()
-{
+auto test_blah6() {
   using std::cout;
   using C = meta::list<int, body>;
   using T = meta::list<tag1, tag2>;
@@ -465,26 +425,22 @@ auto test_blah6()
 
   int tot = 0;
   t.start();
-  em.for_each_matching<siga>([&tot](auto e, auto& b)
-    {
-      CHECK(e.valid());
-      b.x += b.vel * 3;
-      b.y += b.vel * 3;
-      ++tot;
-    });
+  em.for_each_matching<siga>([&tot](auto e, auto& b) {
+    CHECK(e.valid());
+    b.x += b.vel * 3;
+    b.y += b.vel * 3;
+    ++tot;
+  });
   t.stop();
   cout << t;
   CHECK(tot == num_iter);
 }
 
-
 auto test_for() {}
 
 auto test_for2() {}
 
-
-int main()
-{
+int main() {
   test_blah();
   test_blah2();
   test_blah3();
@@ -495,7 +451,6 @@ int main()
   test_blah6();
   test_for();
   test_for2();
-
 
   return ::test_result();
 }

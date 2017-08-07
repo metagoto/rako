@@ -1,24 +1,18 @@
 
-#include "./simple_test.hpp"
 #include <rako/packed_array.hpp>
-
+#include "./simple_test.hpp"
 
 using namespace rako;
 using std::cout;
 using std::endl;
 
-struct pos
-{
+struct pos {
   pos()
     : x(0)
-    , y(0)
-  {
-  }
+    , y(0) {}
   pos(int x, int y)
     : x(x)
-    , y(y)
-  {
-  }
+    , y(y) {}
   pos(pos const&) = default;
   pos(pos&&) = default;
   pos& operator=(pos const&) = default;
@@ -30,8 +24,7 @@ struct pos
 //
 using array_t = packed_array<pos>;
 
-auto test_constructor()
-{
+auto test_constructor() {
   array_t a;
   CHECK(a.size() == 0u);
 
@@ -44,8 +37,7 @@ auto test_constructor()
   CHECK(a.size() == 0u);
 }
 
-auto test_data_array1()
-{
+auto test_data_array1() {
   using a_t = packed_array<int>;
   a_t a;
 
@@ -111,8 +103,7 @@ auto test_data_array1()
   CHECK(!a.valid(h13));
 }
 
-auto test_data_array2()
-{
+auto test_data_array2() {
   using ar_t = packed_array<int>;
   using arv_t = typename ar_t::data_array_t;
 
@@ -180,9 +171,7 @@ auto test_data_array2()
 #undef CHECKA
 }
 
-
-int main()
-{
+int main() {
 
   test_constructor();
   test_data_array1();

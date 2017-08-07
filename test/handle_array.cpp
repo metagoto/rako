@@ -40,7 +40,12 @@ auto to_string(T const& a) {
   return s;
 }
 
-constexpr auto fv = [](auto v) { return v; };
+//constexpr auto fv = [](auto v) { return v; };
+
+template <typename... T>
+auto ts(T&&... t) {
+  return make_tuple(forward<T>(t)...);
+}
 
 template <typename A, typename... T, size_t... I, typename... U, typename... V, size_t... J>
 auto erase_check_impl(A& a, tuple<T...> t, index_sequence<I...>, string_view s, tuple<U...> u,
@@ -51,7 +56,7 @@ auto erase_check_impl(A& a, tuple<T...> t, index_sequence<I...>, string_view s, 
   CHECK(to_string(a) == s);
   if constexpr (sizeof...(J) > 0)
     (void((a.erase(hs[get<J>(u)]), CHECK(to_string(a) == get<J>(v)))), ...);
-  print(a, fv);
+  //print(a, fv);
 }
 
 template <typename A, typename... T, typename... U, typename... V>
@@ -59,9 +64,15 @@ auto erase_check(A& a, tuple<T...> t, string_view s, tuple<U...> u, tuple<V...> 
   erase_check_impl(a, t, index_sequence_for<T...>{}, s, u, v, index_sequence_for<U...>{});
 }
 
-template <typename... T>
-auto ts(T&&... t) {
-  return make_tuple(forward<T>(t)...);
+template <typename A, typename... U, typename... V, size_t... J>
+auto add_check_impl(A& a, tuple<U...> u, tuple<V...> v, index_sequence<J...>) {
+  (void((a.add(get<J>(u)), CHECK(to_string(a) == get<J>(v)))), ...);
+  //print(a, fv);
+}
+
+template <typename A, typename... U, typename... V>
+auto add_check(A& a, tuple<U...> u, tuple<V...> v) {
+  add_check_impl(a, u, v, index_sequence_for<U...>{});
 }
 
 //
@@ -71,9 +82,25 @@ auto test1() {
   array_t a;
 
   erase_check(a, ts(0, 1, 2, 3, 4), "01234", ts(), ts());
+
   erase_check(a, ts(0, 1, 2, 3, 4), "01234", ts(0u), ts("41230"));
+  add_check(a, ts(5), ts("41235"));
+
   erase_check(a, ts(0, 1, 2, 3, 4), "01234", ts(4u), ts("01234"));
+  add_check(a, ts(5), ts("01235"));
+
   erase_check(a, ts(0, 1, 2, 3, 4), "01234", ts(1u, 3u, 0u), ts("04231", "04231", "24031"));
+  add_check(a, ts(5, 6, 7), ts("24531", "24561", "24567"));
+
+  erase_check(a, ts(0, 1, 2), "01200", ts(1u, 0u, 2u), ts("02100", "20100", "20100"));
+  add_check(a, ts(5, 6, 7), ts("50100", "56100", "56700"));
+
+  {
+    using array_t = handle_array<int, 3>;
+    array_t a;
+    erase_check(a, ts(0, 1, 2), "012", ts(1u, 0u, 2u), ts("021", "201", "201"));
+    add_check(a, ts(5, 6, 7), ts("501", "561", "567"));
+  }
 }
 
 int main() {

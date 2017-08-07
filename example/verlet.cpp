@@ -7,46 +7,37 @@
 
 #include <iostream>
 
-#include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
+#include <SFML/Window.hpp>
 #include <rako/entity_group_manager.hpp>
 #include "./quadtree.hpp"
 
-
 using namespace rako;
 
-namespace comp
-{
-  struct pos
-  {
+namespace comp {
+  struct pos {
     float x, y;
   };
-  struct old_pos
-  {
+  struct old_pos {
     float x, y;
   };
-  struct accel
-  {
+  struct accel {
     float x, y;
   };
-  struct rect
-  {
+  struct rect {
     sf::RectangleShape obj;
   };
-  struct sprite
-  {
+  struct sprite {
     sf::Sprite obj;
   };
-}
+}  // namespace comp
 
 using plyr = meta::list<comp::pos, comp::old_pos, comp::accel, comp::rect>;
 using part = meta::list<comp::pos, comp::old_pos, comp::accel, comp::sprite>;
 
 using egm_t = entity_group_manager<plyr, part>;
 
-
-struct game
-{
+struct game {
 
   game()
     : win(sf::VideoMode(800, 600), "rako", sf::Style::Titlebar | sf::Style::Close)
@@ -56,8 +47,7 @@ struct game
     , stats_frames(0)
     , texture()
     , stats_fps(std::make_tuple(0, 10000, 0))
-    , qt(0, 0, 800, 600)
-  {
+    , qt(0, 0, 800, 600) {
     win.setKeyRepeatEnabled(false);
     font.loadFromFile("media/Sansation.ttf");
     stats_text.setFont(font);
@@ -70,8 +60,7 @@ struct game
     make_particles();
   }
 
-  void make_player()
-  {
+  void make_player() {
     comp::rect r;
     r.obj.setFillColor(sf::Color::Red);
     r.obj.setSize({10.f, 10.f});
@@ -80,8 +69,7 @@ struct game
       em.add(comp::pos{100.f, 100.f}, comp::old_pos{0.f, 0.f}, comp::accel{0.f, 0.f}, r);
   }
 
-  void make_particles()
-  {
+  void make_particles() {
     for (int i = 0; i < 150; ++i) {
       float x = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
       float y = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
@@ -89,12 +77,11 @@ struct game
       comp::sprite sp;
       sp.obj.setTexture(texture);
       em.add(comp::pos{x * 400 + 400, y * 300 + 300},
-        comp::old_pos{x * 400 + 400 - 1, y * 300 + 300 - 1}, comp::accel{2.f, 2.f}, sp);
+             comp::old_pos{x * 400 + 400 - 1, y * 300 + 300 - 1}, comp::accel{2.f, 2.f}, sp);
     }
   }
 
-  void run()
-  {
+  void run() {
     static auto tpf = sf::seconds(1.f / 60.f);
     sf::Clock clock;
     sf::Time time_since_last_update = sf::Time::Zero;
@@ -111,8 +98,7 @@ struct game
     }
   }
 
-  void process_input()
-  {
+  void process_input() {
     sf::Event event;
     while (win.pollEvent(event)) {
       handle_event(event);
@@ -120,17 +106,13 @@ struct game
     }
   }
 
-  void handle_event(sf::Event event)
-  {
+  void handle_event(sf::Event event) {
     if (event.type == sf::Event::KeyPressed) {
-      if (event.key.code == sf::Keyboard::Escape) {
-        win.close();
-      }
+      if (event.key.code == sf::Keyboard::Escape) { win.close(); }
     }
   }
 
-  void update(sf::Time t)
-  {
+  void update(sf::Time t) {
     ///
     //    sf::Vector2f a = {0, 0};
     //    if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) a.x -= 1.f;
@@ -144,21 +126,19 @@ struct game
 
     auto const ts = t.asSeconds();
 
-    em.for_each<meta::list<comp::pos, comp::old_pos, comp::accel>>([ts](auto& p, auto& o, auto& a)
-      {
-        auto x = p.x;
-        auto y = p.y;
-        p.x += p.x - o.x + a.x * ts * ts;
-        p.y += p.y - o.y + a.y * ts * ts;
-        o.x = x;
-        o.y = y;
-      });
+    em.for_each<meta::list<comp::pos, comp::old_pos, comp::accel>>([ts](auto& p, auto& o, auto& a) {
+      auto x = p.x;
+      auto y = p.y;
+      p.x += p.x - o.x + a.x * ts * ts;
+      p.y += p.y - o.y + a.y * ts * ts;
+      o.x = x;
+      o.y = y;
+    });
 
     auto const ws = win.getSize();
     auto const radius = 14.f;
     em.for_each<meta::list<comp::pos, comp::old_pos, comp::accel>>(
-      [ws, radius](auto const& p, auto& o, auto& a)
-      {
+      [ws, radius](auto const& p, auto& o, auto& a) {
         if (p.x <= 0) {
           o.x = 2 * p.x - o.x;
           o.y = 2 * p.y - o.y;
@@ -197,18 +177,12 @@ struct game
     //          });
     //      });
 
-
-    em.for_each<meta::list<comp::pos, comp::rect>>([](auto const& p, auto& o)
-      {
-        o.obj.setPosition(p.x, p.y);
-      });
-    em.for_each<meta::list<comp::pos, comp::sprite>>([](auto const& p, auto& o)
-      {
-        o.obj.setPosition(p.x, p.y);
-      });
+    em.for_each<meta::list<comp::pos, comp::rect>>(
+      [](auto const& p, auto& o) { o.obj.setPosition(p.x, p.y); });
+    em.for_each<meta::list<comp::pos, comp::sprite>>(
+      [](auto const& p, auto& o) { o.obj.setPosition(p.x, p.y); });
 
     em.reclaim();
-
 
     //    tcont.clear(); ////
     //    qt.clear();
@@ -248,27 +222,19 @@ struct game
     //      });
   }
 
-  void render()
-  {
+  void render() {
     win.clear();
 
     // qt.draw(win);
 
-    em.for_each<meta::list<comp::sprite>>([this](auto const& o)
-      {
-        win.draw(o.obj);
-      });
-    em.for_each<meta::list<comp::rect>>([this](auto const& o)
-      {
-        win.draw(o.obj);
-      });
+    em.for_each<meta::list<comp::sprite>>([this](auto const& o) { win.draw(o.obj); });
+    em.for_each<meta::list<comp::rect>>([this](auto const& o) { win.draw(o.obj); });
 
     win.draw(stats_text);
     win.display();
   }
 
-  void update_stats(sf::Time elapsed_time)
-  {
+  void update_stats(sf::Time elapsed_time) {
     using std::to_string;
 
     stats_time += elapsed_time;
@@ -276,8 +242,8 @@ struct game
     if (stats_time >= sf::seconds(1.0f)) {
       stats_text.setString("fps: " + to_string(stats_frames) + "\n" + "time / update: " +
                            to_string(stats_time.asMicroseconds() / stats_frames) + "us\n" +
-                           "#entities: " + to_string(em.size()) + "\n" + "#tcont: " +
-                           to_string(tcont.size()) + " #coll: " + to_string(collnum));
+                           "#entities: " + to_string(em.size()) + "\n" +
+                           "#tcont: " + to_string(tcont.size()) + " #coll: " + to_string(collnum));
 
       std::get<0>(stats_fps) = (std::get<0>(stats_fps) + stats_frames) / 2;
       if (std::get<1>(stats_fps) > stats_frames) std::get<1>(stats_fps) = stats_frames;
@@ -288,8 +254,7 @@ struct game
     }
   }
 
-  ~game()
-  {
+  ~game() {
     std::cout << "stats: " << std::get<0>(stats_fps) << " " << std::get<1>(stats_fps) << " "
               << std::get<2>(stats_fps) << " " << std::endl;
   }
@@ -301,7 +266,7 @@ struct game
   std::size_t stats_frames;
   egm_t em;
   sf::Texture texture;
-  std::tuple<std::size_t, std::size_t, std::size_t> stats_fps; // av, min, max
+  std::tuple<std::size_t, std::size_t, std::size_t> stats_fps;  // av, min, max
   egm_t::handle player_handle;
 
   using qtree_t = qtree<egm_t::handle, 4, 8>;
@@ -310,8 +275,7 @@ struct game
   int collnum = 0;
 };
 
-int main()
-{
+int main() {
   game g;
   g.run();
 

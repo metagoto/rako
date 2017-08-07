@@ -1,10 +1,8 @@
 #pragma once
 
-namespace rako
-{
+namespace rako {
   template <typename Index, typename Counter, typename GroupId>
-  struct group_handle
-  {
+  struct group_handle {
     using index_t = Index;
     using counter_t = Counter;
     using groupid_t = GroupId;
@@ -14,15 +12,11 @@ namespace rako
     group_handle(index_t i, counter_t c, groupid_t g /* = ngrp*/)
       : idx(i)
       , ctr(c)
-      , gid(g)
-    {
-    }
+      , gid(g) {}
     group_handle()
       : idx(npos)
       , ctr(nctr)
-      , gid(ngrp)
-    {
-    }
+      , gid(ngrp) {}
     group_handle(group_handle const&) = default;
     group_handle(group_handle&&) = default;
     group_handle& operator=(group_handle const&) = default;
@@ -32,15 +26,15 @@ namespace rako
     auto group() const { return gid; }
     auto valid() const { return ctr != nctr; }
     auto invalidate() { ctr = nctr; }
-  private:
+
+   private:
     index_t idx = npos;
     counter_t ctr = nctr;
     groupid_t gid = ngrp;
 
-    friend bool operator==(group_handle const& a, group_handle const& b)
-    {
+    friend bool operator==(group_handle const& a, group_handle const& b) {
       return a.index() == b.index() && a.counter() == b.counter() && a.group() == b.group();
     }
     friend bool operator!=(group_handle const& a, group_handle const& b) { return !(a == b); }
   };
-}
+}  // namespace rako

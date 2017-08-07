@@ -104,14 +104,12 @@ namespace rako {
       next_free = 0;
     }
 
-#ifndef NDEBUG
+#ifdef RAKO_TEST
     friend struct handle_array_debug;
 #endif
   };
-}  // namespace rako
 
-#ifndef NDEBUG
-namespace rako {
+#ifdef RAKO_TEST
   struct handle_array_debug {
     template <typename T, typename F>
     void data_traverse(T const& a, F const& f) {
@@ -122,5 +120,20 @@ namespace rako {
       for (auto const& v : a.lookup) f(v);
     }
   };
-}  // namespace rako
 #endif
+}  // namespace rako
+
+//#ifdef RAKO_TEST
+// namespace rako {
+//  struct handle_array_debug {
+//    template <typename T, typename F>
+//    void data_traverse(T const& a, F const& f) {
+//      for (auto const& v : a.data) f(v);
+//    }
+//    template <typename T, typename F>
+//    void lookup_traverse(T const& a, F const& f) {
+//      for (auto const& v : a.lookup) f(v);
+//    }
+//  };
+//}  // namespace rako
+//#endif

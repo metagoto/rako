@@ -1,36 +1,28 @@
 
 #include <iostream>
-#include <rako/entity_manager.hpp>
 #include <rako/entity_group_manager.hpp>
+#include <rako/entity_manager.hpp>
 
 #include "timer.hpp"
-
 
 using namespace rako;
 using std::cout;
 using std::endl;
 
-
-struct pos
-{
+struct pos {
   int x, y;
 };
-struct acc
-{
+struct acc {
   int x, y;
 };
-struct name
-{
+struct name {
   std::string name;
 };
-struct other
-{
+struct other {
   float x, y;
 };
 
-
-int main()
-{
+int main() {
 
   test::timer t;
   constexpr auto num_iter = 10000;
@@ -68,23 +60,21 @@ int main()
   ////
   int j = 0;
   t.start();
-  eg.for_each<meta::list<pos, name>>([&j](auto& p, auto&)
-    {
-      ++p.x;
-      ++p.y;
-      ++j;
-    });
+  eg.for_each<meta::list<pos, name>>([&j](auto& p, auto&) {
+    ++p.x;
+    ++p.y;
+    ++j;
+  });
   t.stop();
   cout << "eg " << j << " " << t;
 
   j = 0;
   t.start();
-  em.for_each_matching<meta::list<pos, name>>([&j](auto&, auto& p, auto&)
-    {
-      ++p.x;
-      ++p.y;
-      ++j;
-    });
+  em.for_each_matching<meta::list<pos, name>>([&j](auto&, auto& p, auto&) {
+    ++p.x;
+    ++p.y;
+    ++j;
+  });
   t.stop();
   cout << "em " << j << " " << t;
 
@@ -115,11 +105,9 @@ int main()
   std::uint64_t l = 0;
   t.start();
   eg.for_each<meta::list<eg_t::handle, pos, name>>(
-    [&k, &l, &eg](auto const& h1, auto const& p, auto&)
-    {
+    [&k, &l, &eg](auto const& h1, auto const& p, auto&) {
       eg.for_each<meta::list<eg_t::handle, pos, name>>(
-        [&h1, &k, &l, &p](auto const& h2, auto const& q, auto&)
-        {
+        [&h1, &k, &l, &p](auto const& h2, auto const& q, auto&) {
           // if (p.x == q.x && p.y == q.y) ++l;
           (void)p;
           (void)q;
