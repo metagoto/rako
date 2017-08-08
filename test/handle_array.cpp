@@ -160,7 +160,6 @@ auto test2() {
 auto test3() {
   using array_t = handle_array<int, 5>;
   array_t a;
-
   erase_check(a, ts(0, 1, 2, 3, 4), "01234", ts(), ts());
   int* p = a.data();
   auto s =
