@@ -7,10 +7,10 @@
 
 namespace rako {
 
-  template <typename T, std::size_t CAPACITY>
+  template <typename Type, std::size_t Capacity>
   struct handle_array {
 
-    using value_type = T;
+    using value_type = Type;
 
     struct handle {
       constexpr static std::size_t npos = static_cast<std::size_t>(-1);
@@ -42,67 +42,85 @@ namespace rako {
       std::size_t next_free = handle::npos;
     };
 
-    std::size_t next_free = 0;
-    std::array<item, CAPACITY> lookup;
+    std::size_t next_free_ = 0;
+    std::array<item, Capacity> lookup_;
 
-    std::size_t sz = 0;
-    std::array<T, CAPACITY> data;
+    std::size_t sz_ = 0;
+    std::array<value_type, Capacity> data_;
 
     handle grow() {
-      assert(sz < CAPACITY);
-
-      auto i = next_free;
-      if (i == handle::npos) i = sz;
-
-      next_free = lookup[i].next_free;
-      lookup[i].data_index = sz;
-      auto ctr = ++lookup[i].ctr;
-
-      lookup[sz].lookup_index = i;
-
+      assert(sz_ < Capacity);
+      auto i = next_free_;
+      if (i == handle::npos) i = sz_;
+      next_free_ = lookup_[i].next_free;
+      lookup_[i].data_index = sz_;
+      auto ctr = ++lookup_[i].ctr;
+      lookup_[sz_].lookup_index = i;
       return handle(i, ctr);
     }
 
-    auto size() const { return sz; }
+    auto size() const { return sz_; }
+    auto capacity() const { return Capacity; }
 
-    handle add(T const& v) {
+    handle push(value_type const& v) {
       auto h = grow();
-      data[sz++] = v;
+      data_[sz_++] = v;
       return h;
     }
 
-    bool valid(handle const& h) {
+    handle push(value_type&& v) {
+      auto h = grow();
+      data_[sz_++] = std::move(v);
+      return h;
+    }
+
+    template<typename... T>
+    handle emplace(T&&... v) {
+      auto h = grow();
+      new (&data_[sz_++]) value_type{std::forward<T>(v)...};
+      return h;
+    }
+
+    value_type& get(handle h) {
+      assert(valid(h));
       auto const i = h.index();
-      return i < lookup.size() && h.counter() == lookup[i].ctr && h.counter() != handle::nctr;
+      auto const id = lookup_[i].data_index;
+      return data_[id];
+    }
+
+    bool valid(handle const& h) const {
+      auto const i = h.index();
+      return i < lookup_.size() && h.counter() == lookup_[i].ctr && h.counter() != handle::nctr;
     }
 
     void erase(handle h) {
-      auto const i = h.index();
       assert(valid(h));
-
+      auto const i = h.index();
       h.invalidate();
-
-      lookup[i].next_free = next_free;
-      next_free = i;
-
-      ++lookup[i].ctr;  //?
-
-      auto id = lookup[i].data_index;
-      if (--sz == id) return;
-      std::swap(data[id], data[sz]);
-
-      auto y = lookup[id].lookup_index;
-      auto z = lookup[sz].lookup_index;
-      std::swap(lookup[y].data_index, lookup[z].data_index);
-      std::swap(lookup[id].lookup_index, lookup[sz].lookup_index);
+      // allow calling destructor?
+      lookup_[i].next_free = next_free_;
+      next_free_ = i;
+      ++lookup_[i].ctr;  //?
+      auto id = lookup_[i].data_index;
+      if (--sz_ == id) return;
+      std::swap(data_[id], data_[sz_]);
+      auto y = lookup_[id].lookup_index;
+      auto z = lookup_[sz_].lookup_index;
+      std::swap(lookup_[y].data_index, lookup_[z].data_index);
+      std::swap(lookup_[id].lookup_index, lookup_[sz_].lookup_index);
     }
 
     void clear() {
-      std::fill(std::begin(lookup), std::end(lookup), item{});
-      std::fill(std::begin(data), std::end(data), value_type{});
-      sz = 0;
-      next_free = 0;
+      std::fill(std::begin(lookup_), std::end(lookup_), item{});
+      std::fill(std::begin(data_), std::end(data_), value_type{});
+      sz_ = 0;
+      next_free_ = 0;
     }
+
+    decltype(auto) data() {
+      return data_.data();
+    }
+
 
 #ifdef RAKO_TEST
     friend struct handle_array_debug;
@@ -113,27 +131,12 @@ namespace rako {
   struct handle_array_debug {
     template <typename T, typename F>
     void data_traverse(T const& a, F const& f) {
-      for (auto const& v : a.data) f(v);
+      for (auto const& v : a.data_) f(v);
     }
     template <typename T, typename F>
     void lookup_traverse(T const& a, F const& f) {
-      for (auto const& v : a.lookup) f(v);
+      for (auto const& v : a.lookup_) f(v);
     }
   };
 #endif
 }  // namespace rako
-
-//#ifdef RAKO_TEST
-// namespace rako {
-//  struct handle_array_debug {
-//    template <typename T, typename F>
-//    void data_traverse(T const& a, F const& f) {
-//      for (auto const& v : a.data) f(v);
-//    }
-//    template <typename T, typename F>
-//    void lookup_traverse(T const& a, F const& f) {
-//      for (auto const& v : a.lookup) f(v);
-//    }
-//  };
-//}  // namespace rako
-//#endif
