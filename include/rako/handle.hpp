@@ -26,4 +26,4 @@ namespace rako {
     index_t idx = npos;
     counter_t ctr = nctr;
   };
-}  // namespace rako
+}

@@ -120,4 +120,4 @@ namespace rako {
       return data_array[item_array[i].idx];
     }
   };
-}  // namespace rako
+}

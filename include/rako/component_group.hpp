@@ -13,7 +13,7 @@ namespace rako {
 
   template <std::size_t ID, typename... Components, typename Traits>
   struct component_group<ID, meta::list<Components...>, Traits> {
-    using self_t = component_group<ID, Components..., Traits>;
+    using self_t = component_group<ID, meta::list<Components...>, Traits>;
 
     using index_t = typename Traits::index_t;
     using counter_t = typename Traits::counter_t;
@@ -181,4 +181,4 @@ namespace rako {
       for_each_impl<H, L>::call(*this, std::forward<F>(f));
     }
   };
-}  // namespace rako
+}

@@ -31,8 +31,8 @@ namespace rako {
 
     template <typename F>
     auto test(F&& f) {
-      for (auto const& p : cont) {
-        auto const& nodes = p->test();
+      for (auto /*const*/& p : cont) {
+        auto /*const*/& nodes = p->test();
         // for (auto& data : nodes) {
         std::forward<F>(f)(nodes);
         //}
@@ -67,7 +67,7 @@ namespace rako {
     }
 
     ////
-    auto test() const {
+    auto& test() /*const*/ {
       return nodes;  //// copy
     }
 
@@ -164,4 +164,4 @@ namespace rako {
     /// TMP
     sf::RectangleShape shape;
   };
-}  // namespace rako
+}

@@ -30,7 +30,7 @@ namespace comp {
   struct sprite {
     sf::Sprite obj;
   };
-}  // namespace comp
+}
 
 using plyr = meta::list<comp::pos, comp::vel, comp::accel, comp::rect>;
 using part = meta::list<comp::pos, comp::vel, comp::accel, comp::sprite>;
@@ -40,14 +40,14 @@ using egm_t = entity_group_manager<plyr, part>;
 struct game {
 
   game()
-    : win(sf::VideoMode(800, 600), "rako", sf::Style::Titlebar | sf::Style::Close)
+    : win(sf::VideoMode(1200, 1200), "rako", sf::Style::Titlebar | sf::Style::Close)
     , font()
     , stats_text()
     , stats_time()
     , stats_frames(0)
     , texture()
     , stats_fps(std::make_tuple(0, 10000, 0))
-    , qt(0, 0, 800, 600) {
+    , qt(0, 0, 1200, 1200) {
     win.setKeyRepeatEnabled(false);
     font.loadFromFile("media/Sansation.ttf");
     stats_text.setFont(font);
@@ -70,7 +70,7 @@ struct game {
   }
 
   void make_particles() {
-    for (int i = 0; i < 150; ++i) {
+    for (int i = 0; i < 5000; ++i) {
       float x = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
       float y = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
 
@@ -113,7 +113,6 @@ struct game {
   }
 
   void update(sf::Time t) {
-    ///
     sf::Vector2f a = {0, 0};
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) a.x -= 1.f;
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) a.x += 1.f;
@@ -140,24 +139,6 @@ struct game {
       if (p.pos.y + radius >= ws.y) v.vel.y *= -1;
     });
 
-    //    em.for_each<meta::list<egm_t::handle, comp::pos, comp::vel>>(
-    //      [this, ts](auto h1, auto& p, auto& v)
-    //      {
-    //        em.for_each<meta::list<egm_t::handle, comp::pos, comp::vel>>([&](auto h2, auto& q,
-    //        auto& w)
-    //          {
-    //            if (h1 == h2) return;
-    //            sf::Rect<float> r1 = {p.pos.x, p.pos.y, 14, 14};
-    //            sf::Rect<float> r2 = {q.pos.x, q.pos.y, 14, 14};
-    //            if (r1.intersects(r2)) {
-    //              v.vel *= -1.f;
-    //              w.vel *= -1.f;
-    //              p.pos += v.vel * ts;
-    //              q.pos += w.vel * ts;
-    //            }
-    //          });
-    //      });
-
     em.for_each<meta::list<comp::pos, comp::rect>>(
       [](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
     em.for_each<meta::list<comp::pos, comp::sprite>>(
@@ -167,60 +148,60 @@ struct game {
 
     tcont.clear();  ////
     qt.clear();
-    // qt.reset(0, 0, ws.x, ws.y);
 
     em.for_each<meta::list<egm_t::handle, comp::pos>>(
-      [this /*, ts*/](auto h1, auto const& p) { qt.insert(h1, p.pos.x, p.pos.y, tcont); });
+      [this /*, ts*/](auto h, auto const& p) { qt.insert(h, p.pos.x, p.pos.y, tcont); });
 
     collnum = 0;
-    tcont.test([this, ts](auto const& nodes)  // data.x, data.y!!!
-               {
-                 for (auto i = 0u; i < nodes.size(); ++i) {
-                   for (auto j = i + 1; j < nodes.size(); ++j) {
-                     auto const& x1 = nodes[i].x;  // no handle for now
-                     auto const& y1 = nodes[i].y;
-                     auto const& x2 = nodes[j].x;
-                     auto const& y2 = nodes[j].y;
-                     if (x1 < x2 + 14.f && x1 + 14.f > x2 && y1 < y2 + 14.f && y1 + 14.f > y2) {
-                       ++collnum;
+    tcont.test([this, ts](auto const& nodes) {
+      for (auto i = 0u; i < nodes.size(); ++i) {
+        for (auto j = i + 1; j < nodes.size(); ++j) {
+          auto const& x1 = nodes[i].x;
+          auto const& y1 = nodes[i].y;
+          auto const& x2 = nodes[j].x;
+          auto const& y2 = nodes[j].y;
+          if (x1 < x2 + 14.f && x1 + 14.f > x2 && y1 < y2 + 14.f && y1 + 14.f > y2) {
+            auto const& h1 = nodes[i].obj;
+            auto const& h2 = nodes[j].obj;
 
-                       auto const& h1 = nodes[i].obj;
-                       auto const& h2 = nodes[j].obj;
+            auto[p1, v1] = em.get<comp::pos, comp::vel>(h1);
+            auto[p2, v2] = em.get<comp::pos, comp::vel>(h2);
 
-                       auto& p1 = em.get<comp::pos>(h1);
-                       auto& v1 = em.get<comp::vel>(h1);
-                       auto& p2 = em.get<comp::pos>(h2);
-                       auto& v2 = em.get<comp::vel>(h2);
+            auto const p21x = p2.pos.x - p1.pos.x;
+            auto const p21y = p2.pos.y - p1.pos.y;
+            auto const v21x = v2.vel.x - v1.vel.x;
+            auto const v21y = v2.vel.y - v1.vel.y;
+            auto const m = p21x * v21x + p21y * v21y;
+            if (m >= 0.f) continue;
 
-                       v1.vel *= -1.f;
-                       v2.vel *= -1.f;
-                       p1.pos += v1.vel * ts;
-                       p2.pos += v2.vel * ts;
+            auto const p12x = -1.f * p21x;
+            auto const p12y = -1.f * p21y;
+            auto const d1 = p12x * p12x + p12y * p12y;
+            auto const d2 = p21x * p21x + p21y * p21y;
+            auto const v1o = v1.vel;
+            auto const v2o = v2.vel;
+            v1.vel.x = v1o.x - m / d1 * p12x;
+            v1.vel.y = v1o.y - m / d1 * p12y;
+            v2.vel.x = v2o.x - m / d2 * p21x;
+            v2.vel.y = v2o.y - m / d2 * p21y;
 
-                       //              auto const& h1 = nodes[i].obj;
-                       //              auto const& h2 = nodes[j].obj;
-                       //              std::cout << em.get<comp::pos>(h1).pos.x << " " <<
-                       //              em.get<comp::pos>(h1).pos.y
-                       //                        << "   ";
-                       //              std::cout << em.get<comp::pos>(h2).pos.x << " " <<
-                       //              em.get<comp::pos>(h2).pos.y
-                       //                        << "\n";
-                     }
-                   }
-                 }
-               });
+            p1.pos += v1.vel * ts;
+            p2.pos += v2.vel * ts;
+            ++collnum;
+          }
+        }
+      }
+    });
   }
 
   void render() {
     win.clear();
 
-    // qt.draw(win);
+    //qt.draw(win);
 
     em.for_each<meta::list<comp::sprite>>([this](auto const& o) { win.draw(o.obj); });
-    //    em.for_each<meta::list<comp::rect>>([this](auto const& o)
-    //      {
-    //        win.draw(o.obj);
-    //      });
+
+    //em.for_each<meta::list<comp::rect>>([this](auto const& o) { win.draw(o.obj); });
 
     win.draw(stats_text);
     win.display();
@@ -261,7 +242,7 @@ struct game {
   std::tuple<std::size_t, std::size_t, std::size_t> stats_fps;  // av, min, max
   egm_t::handle player_handle;
 
-  using qtree_t = qtree<egm_t::handle, 4, 8>;
+  using qtree_t = qtree<egm_t::handle, 256, 8>;
   qtree_t qt;
   tmpcont<qtree_t*> tcont;
   int collnum = 0;

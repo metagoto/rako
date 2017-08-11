@@ -25,7 +25,7 @@ namespace comp {
   struct sprite {
     sf::Sprite obj;
   };
-}  // namespace comp
+}
 
 using plyr = meta::list<comp::body, comp::rect>;
 using part = meta::list<comp::body, comp::sprite>;

@@ -31,7 +31,7 @@ namespace rako {
       return tuple_apply_index_impl(std::forward<T>(t), std::forward<F>(f),
                                     std::make_index_sequence<s>{});
     }
-  }  // namespace impl
+  }
 
   template <typename Components, typename Tags = meta::list<>>
   struct entity_manager {
@@ -253,4 +253,4 @@ namespace rako {
       }
     }
   };
-}  // namespace rako
+}

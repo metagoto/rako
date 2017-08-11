@@ -5,12 +5,14 @@ set -e
 BUILD_TYPE=Release
 CXX_STD=1z
 SFML_DIR=/home/rno/dev/sfml-install
+HANA_DIR=/home/rno/dev/hana-install
 
 CLANG_DIR=/home/rno/dev/clang-install
 LIBCPP_INC="$CLANG_DIR/include/c++/v1"
 LIBCPP_LIB="$CLANG_DIR/lib"
+HANA_INC="$HANA_DIR/include"
 
-CXX_FLAGS="-stdlib=libc++ -std=c++1z -I$LIBCPP_INC"
+CXX_FLAGS="-stdlib=libc++ -std=c++1z -I$LIBCPP_INC -I$HANA_INC"
 CXX_LINKER_FLAGS="-stdlib=libc++ -L$LIBCPP_LIB -lc++ -lc++abi"
 
 export CXX="$CLANG_DIR/bin/clang++"
@@ -28,8 +30,7 @@ cmake -DRAKO_CXX_STD=$CXX_STD -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DRAKO_SFML_DIR=$SF
   ..
 make
 
-mkdir example/media
-cp -r ../example/media example
+mkdir example/media && cp -r ../example/media example
 
 make test
 cd ..
@@ -45,4 +46,4 @@ cd ..
 #./build/test/perf
 #./build/test/bench
 #./build/test/entity_group_manager
-./build/test/handle_array
+#./build/test/handle_array

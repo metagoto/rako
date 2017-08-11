@@ -37,4 +37,4 @@ namespace rako {
     }
     friend bool operator!=(group_handle const& a, group_handle const& b) { return !(a == b); }
   };
-}  // namespace rako
+}

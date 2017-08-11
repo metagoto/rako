@@ -32,7 +32,7 @@ namespace rako {
     struct group_id_expand<Traits, std::index_sequence<Is...>, Ts...> {
       using type = std::tuple<component_group<Is, Ts, Traits>...>;
     };
-  }  // namespace impl
+  }
 
   template <typename... CGLs>
   struct entity_group_manager {
@@ -133,31 +133,59 @@ namespace rako {
     ///
     template <typename T, std::size_t I>
     auto& get_impl(group_tuple& t, handle const& h) {
-      return *std::get<I>(t).template get<T>(h);
+      auto p = std::get<I>(t).template get<T>(h);
+      assert(p != nullptr && "T is not a valid component for the supplied handle");
+      return *p;
     }
     template <typename T, std::size_t... Is>
     auto& get_dispatch(handle const& h, std::index_sequence<Is...>) {
       static constexpr decltype(&self_t::get_impl<T, 0>) a[] = {&self_t::get_impl<T, Is>...};
       return (this->*(a[h.group()]))(groups, h);
     }
-    template <typename T>
-    auto& get(handle const& h) {
-      return get_dispatch<T>(h, group_index_seq{});
-    }
-
-    ///
     template <typename T, std::size_t I>
-    auto const& get_c_impl(group_tuple const& t, handle const& h) const {
-      return *std::get<I>(t).template get<T>(h);
+    auto const& get_const_impl(group_tuple const& t, handle const& h) const {
+      auto p = std::get<I>(t).template get<T>(h);
+      assert(p != nullptr && "T is not a valid component for the supplied handle");
+      return *p;
     }
     template <typename T, std::size_t... Is>
     auto const& get_dispatch(handle const& h, std::index_sequence<Is...>) const {
-      static constexpr decltype(&self_t::get_c_impl<T, 0>) a[] = {&self_t::get_c_impl<T, Is>...};
+      static constexpr decltype(&self_t::get_const_impl<T, 0>) a[] = {
+        &self_t::get_const_impl<T, Is>...};
       return (this->*(a[h.group()]))(groups, h);
     }
-    template <typename T>
-    auto const& get(handle const& h) const {
-      return get_dispatch<T>(h, group_index_seq{});
+    template <typename... Ts>
+    struct get_fw {
+      template <typename Self>
+      static decltype(auto) call(Self& self, handle const& h) {
+        if constexpr (sizeof...(Ts) == 1) {
+          return (self.template get_dispatch<Ts>(h, group_index_seq{}), ...);
+        } else {
+          return std::tuple<std::add_lvalue_reference_t<Ts>...>{
+            self.template get_dispatch<Ts>(h, group_index_seq{})...};
+        }
+      }
+      template <typename Self>
+      static decltype(auto) call(Self const& self, handle const& h) {
+        if constexpr (sizeof...(Ts) == 1) {
+          return (self.template get_dispatch<Ts>(h, group_index_seq{}), ...);
+        } else {
+          return std::tuple<std::add_lvalue_reference_t<std::add_const_t<Ts>>...>{
+            self.template get_dispatch<Ts>(h, group_index_seq{})...};
+        }
+      }
+    };
+    template <typename... Ts>
+    struct get_fw<meta::list<Ts...>> : get_fw<Ts...> {};
+
+    template <typename... T>
+    decltype(auto) get(handle const& h) {
+      return get_fw<T...>::call(*this, h);
+    }
+
+    template <typename... T>
+    decltype(auto) get(handle const& h) const {
+      return get_fw<T...>::call(*this, h);
     }
 
     ///
@@ -179,4 +207,4 @@ namespace rako {
       for_each_impl<hand{}, select, list>::call(*this, std::forward<F>(f));
     }
   };
-}  // namespace rako
+}

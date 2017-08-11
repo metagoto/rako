@@ -25,7 +25,7 @@ struct other {
 int main() {
 
   test::timer t;
-  constexpr auto num_iter = 10000;
+  constexpr auto num_iter = 10000000;
 
   using A = meta::list<pos, acc, name>;
   using B = meta::list<pos, other, name>;
@@ -81,7 +81,7 @@ int main() {
   ////
   auto hg = eg.add(pos{}, acc{}, name{});
   t.start();
-  for (int i = 0; i < num_iter * 10; ++i) {
+  for (int i = 0; i < num_iter * 100; ++i) {
     auto& pg = eg.get<pos>(hg);
     ++pg.x;
   }
@@ -92,7 +92,7 @@ int main() {
   auto hm = em.create();
   em.push<pos>(hm, pos{});
   t.start();
-  for (int i = 0; i < num_iter * 10; ++i) {
+  for (int i = 0; i < num_iter * 100; ++i) {
     auto& pm = em.get<pos>(hm);
     ++pm.x;
   }
@@ -101,20 +101,44 @@ int main() {
   cout << "em " << pm.x << " " << t;
 
   ////
-  std::uint64_t k = 0;
-  std::uint64_t l = 0;
   t.start();
-  eg.for_each<meta::list<eg_t::handle, pos, name>>(
-    [&k, &l, &eg](auto const& h1, auto const& p, auto&) {
-      eg.for_each<meta::list<eg_t::handle, pos, name>>(
-        [&h1, &k, &l, &p](auto const& h2, auto const& q, auto&) {
-          // if (p.x == q.x && p.y == q.y) ++l;
-          (void)p;
-          (void)q;
-          if (h1 == h2) ++l;
-          ++k;
-        });
-    });
+  for (int i = 0; i < num_iter * 100; ++i) {
+    auto[pgp, pga] = eg.get<pos, acc>(hg);
+    --pgp.x;
+    ++pga.x;
+  }
   t.stop();
-  cout << "eg " << k << " " << l << " " << t;
+  auto[pgp, pga] = eg.get<pos, acc>(hg);
+  cout << "eg " << pgp.x << " " << pga.x << " " << t;
+
+  em.push<acc>(hm, acc{});
+  t.start();
+  for (int i = 0; i < num_iter * 100; ++i) {
+    auto& pp = em.get<pos>(hm);
+    --pp.x;
+    auto& pa = em.get<acc>(hm);
+    ++pa.x;
+  }
+  t.stop();
+  auto pmp = em.get<pos>(hm);
+  auto pma = em.get<acc>(hm);
+  cout << "em " << pmp.x << " " << pma.x << " " << t;
+
+  ////
+  //  std::uint64_t k = 0;
+  //  std::uint64_t l = 0;
+  //  t.start();
+  //  eg.for_each<meta::list<eg_t::handle, pos, name>>(
+  //    [&k, &l, &eg](auto const& h1, auto const& p, auto&) {
+  //      eg.for_each<meta::list<eg_t::handle, pos, name>>(
+  //        [&h1, &k, &l, &p](auto const& h2, auto const& q, auto&) {
+  //          // if (p.x == q.x && p.y == q.y) ++l;
+  //          (void)p;
+  //          (void)q;
+  //          if (h1 == h2) ++l;
+  //          ++k;
+  //        });
+  //    });
+  //  t.stop();
+  //  cout << "eg " << k << " " << l << " " << t;
 }

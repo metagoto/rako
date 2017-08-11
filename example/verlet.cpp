@@ -30,7 +30,7 @@ namespace comp {
   struct sprite {
     sf::Sprite obj;
   };
-}  // namespace comp
+}
 
 using plyr = meta::list<comp::pos, comp::old_pos, comp::accel, comp::rect>;
 using part = meta::list<comp::pos, comp::old_pos, comp::accel, comp::sprite>;

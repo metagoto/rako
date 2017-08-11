@@ -24,4 +24,4 @@ namespace test {
       return os;
     }
   };
-}  // namespace test
+}

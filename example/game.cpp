@@ -23,16 +23,16 @@ namespace comp {
   struct sprite {
     sf::Sprite obj;
   };
-}  // namespace comp
+}
 namespace tag {
   struct player {};
   struct particle {};
-}  // namespace tag
+}
 namespace sig {
   using body = meta::list<comp::body>;
   using render_rect = meta::list<comp::body, comp::rect>;
   using render_sprite = meta::list<comp::body, comp::sprite>;
-}  // namespace sig
+}
 
 using components = meta::list<comp::body, comp::rect, comp::sprite>;
 using tags = meta::list<tag::player, tag::particle>;

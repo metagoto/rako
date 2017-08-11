@@ -74,7 +74,7 @@ namespace rako {
       return h;
     }
 
-    template<typename... T>
+    template <typename... T>
     handle emplace(T&&... v) {
       auto h = grow();
       new (&data_[sz_++]) value_type{std::forward<T>(v)...};
@@ -117,10 +117,7 @@ namespace rako {
       next_free_ = 0;
     }
 
-    decltype(auto) data() {
-      return data_.data();
-    }
-
+    decltype(auto) data() { return data_.data(); }
 
 #ifdef RAKO_TEST
     friend struct handle_array_debug;
@@ -139,4 +136,4 @@ namespace rako {
     }
   };
 #endif
-}  // namespace rako
+}

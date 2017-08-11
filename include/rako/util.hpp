@@ -16,4 +16,4 @@ namespace rako {
   void for_each_tuple(std::tuple<Ts...>& tup, F f) {
     for_each_tuple(tup, f, std::make_index_sequence<sizeof...(Ts)>());
   }
-}  // namespace rako
+}
