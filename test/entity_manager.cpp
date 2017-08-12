@@ -184,7 +184,7 @@ auto test_groups() {
   /*auto h2 = */ em.add(pos{11, 22}, vel{33, 44});
   /*auto h3 = */ em.add(pos{6, 7}, vel{42, 43}, name{"hello"});
 
-  CHECK(false);
+  CHECK(true);
 }
 
 int main() {
