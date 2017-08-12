@@ -34,16 +34,3 @@ mkdir example/media && cp -r ../example/media example
 
 make test
 cd ..
-
-#valgrind build/test/packed_array
-#valgrind build/test/entity_manager
-#valgrind build/test/perf
-#valgrind build/test/entity_group_manager
-#valgrind build/test/handle_array
-
-#./build/test/packed_array
-#./build/test/entity_manager
-#./build/test/perf
-#./build/test/bench
-#./build/test/entity_group_manager
-#./build/test/handle_array

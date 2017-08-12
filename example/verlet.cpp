@@ -9,7 +9,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
-#include <rako/entity_group_manager.hpp>
+#include <rako/entity_manager.hpp>
 #include "./quadtree.hpp"
 
 using namespace rako;
@@ -35,7 +35,7 @@ namespace comp {
 using plyr = meta::list<comp::pos, comp::old_pos, comp::accel, comp::rect>;
 using part = meta::list<comp::pos, comp::old_pos, comp::accel, comp::sprite>;
 
-using egm_t = entity_group_manager<plyr, part>;
+using egm_t = entity_manager<plyr, part>;
 
 struct game {
 

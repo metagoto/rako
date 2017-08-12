@@ -5,11 +5,10 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
-#include <iostream>
-
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
-#include <rako/entity_group_manager.hpp>
+#include <iostream>
+#include <rako/entity_manager.hpp>
 #include "./quadtree.hpp"
 
 using namespace rako;
@@ -35,7 +34,7 @@ namespace comp {
 using plyr = meta::list<comp::pos, comp::vel, comp::accel, comp::rect>;
 using part = meta::list<comp::pos, comp::vel, comp::accel, comp::sprite>;
 
-using egm_t = entity_group_manager<plyr, part>;
+using egm_t = entity_manager<plyr, part>;
 
 struct game {
 
@@ -197,11 +196,11 @@ struct game {
   void render() {
     win.clear();
 
-    //qt.draw(win);
+    // qt.draw(win);
 
     em.for_each<meta::list<comp::sprite>>([this](auto const& o) { win.draw(o.obj); });
 
-    //em.for_each<meta::list<comp::rect>>([this](auto const& o) { win.draw(o.obj); });
+    // em.for_each<meta::list<comp::rect>>([this](auto const& o) { win.draw(o.obj); });
 
     win.draw(stats_text);
     win.display();

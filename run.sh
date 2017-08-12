@@ -9,4 +9,3 @@ export LD_LIBRARY_PATH="$CLANG_DIR/lib:$SFML_DIR/lib"
 
 cd $(dirname $1)
 ./$(basename $1)
-

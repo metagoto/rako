@@ -1,7 +1,5 @@
 #pragma once
 
-#include <meta/meta.hpp>
-
 #include <algorithm>
 #include <array>
 #include <bitset>
@@ -9,248 +7,204 @@
 #include <tuple>
 #include <utility>
 
-#include <rako/packed_array.hpp>
+#include <rako/component_group.hpp>
+#include <rako/component_group_traits.hpp>
 
 namespace rako {
 
   namespace impl {
     template <typename...>
-    struct tuple_array_expand;
-    template <typename Traits, typename... T>
-    struct tuple_array_expand<Traits, meta::list<T...>> {
-      using type = std::tuple<packed_array<T, Traits>...>;
-    };
+    struct is_group;
+    template <typename L, typename... Ts>
+    struct is_group<L, meta::list<Ts...>>
+      : std::integral_constant<bool, (meta::in<typename L::comp_list, Ts>::value && ...) &&
+                                       L::comp_list::size() == meta::list<Ts...>::size()> {};
 
-    template <typename T, typename F, std::size_t... I>
-    auto tuple_apply_index_impl(T&& t, F const& f, std::index_sequence<I...>) {
-      return (f(std::get<I>(std::forward<T>(t)), I), ...);
-    }
-    template <typename T, typename F>
-    auto tuple_apply_index(T&& t, F&& f) {
-      constexpr auto s = std::tuple_size<typename std::decay<T>::type>::value;
-      return tuple_apply_index_impl(std::forward<T>(t), std::forward<F>(f),
-                                    std::make_index_sequence<s>{});
-    }
+    template <typename...>
+    struct is_comp;
+    template <typename T, typename... Ts>
+    struct is_comp<T, meta::list<Ts...>>
+      : std::integral_constant<bool, (meta::in<typename T::comp_list, Ts>::value && ...)> {};
+
+    template <typename...>
+    struct group_id_expand;
+    template <typename Traits, std::size_t... Is, typename... Ts>
+    struct group_id_expand<Traits, std::index_sequence<Is...>, Ts...> {
+      using type = std::tuple<component_group<Is, Ts, Traits>...>;
+    };
   }
 
-  template <typename Components, typename Tags = meta::list<>>
+  template <typename... CGLs>
   struct entity_manager {
-    using component_list = Components;
-    using tag_list = Tags;
+    using self_t = entity_manager<CGLs...>;
 
-    static_assert(meta::unique<component_list>::size() == component_list::size());
-    static_assert(meta::unique<tag_list>::size() == tag_list::size());
-    using all_list = meta::concat<component_list, tag_list>;
-    static_assert(meta::unique<all_list>::size() == all_list::size());
+    using group_tuple =
+      typename impl::group_id_expand<component_group_traits, std::index_sequence_for<CGLs...>,
+                                     CGLs...>::type;  // TODO: traits!
 
-    using component_tuple_t =
-      typename impl::tuple_array_expand<packed_array_traits, component_list>::type;
+    using group_index_seq = std::make_index_sequence<std::tuple_size<group_tuple>::value>;
+    using group_list = meta::as_list<group_tuple>;
 
-    using component_handle_t = typename std::tuple_element<0, component_tuple_t>::type::handle_t;
+    using handle = typename std::tuple_element<0, group_tuple>::type::handle;
 
-    constexpr static auto bset_size() { return 1 + component_list::size() + tag_list::size(); }
-    using bitset_t = std::bitset<bset_size()>;
-
-    struct data {
-      bitset_t bset;  // bset[0] : killed
-      std::array<component_handle_t, component_list::size()> component;
-    };
-    using entity_array_t = packed_array<data /*, traits*/>;
-    using handle = typename entity_array_t::handle;
-
-    template <typename T>
-    using index_of_comp = meta::find_index<component_list, typename std::decay<T>::type>;
-    template <typename T>
-    using index_of_tag = meta::find_index<tag_list, typename std::decay<T>::type>;
-    template <typename T>
-    using index_of_all = meta::find_index<all_list, typename std::decay<T>::type>;
-    constexpr static auto bset_all_index(std::size_t i) { return 1 + i; }
-    constexpr static auto bset_comp_index(std::size_t i) { return 1 + i; }
-    constexpr static auto bset_tag_index(std::size_t i) { return 1 + component_list::size() + i; }
-
-    component_tuple_t component_data;
-    entity_array_t entity;
+    group_tuple groups;
     std::vector<handle> killed;
 
-    auto create() { return entity.emplace(); }
-
-    auto& remove(handle& h) {
-      if (!entity.valid(h)) return *this;
-      auto& d = entity.get(h);
-      impl::tuple_apply_index(component_data, [&d](auto& a, auto const& i) {
-        auto e = d.component[i];
-        if (a.valid(e)) a.erase(e);
-      });
-      d.bset.reset();
-      entity.erase(h);
-      return *this;
+    ///
+    template <typename... Cs>
+    struct group_for_comp {
+      using comp = meta::list<std::decay_t<Cs>...>;
+      using type = meta::front<
+        meta::find_if<group_list, meta::lambda<meta::placeholders::_a,
+                                               impl::is_group<meta::placeholders::_a, comp>>>>;
+    };
+    template <typename... Ts>
+    auto add(Ts&&... ts) {
+      return add(std::forward_as_tuple(std::forward<Ts>(ts)...));
+    }
+    template <typename... Ts>
+    auto add(std::tuple<Ts...>&& t) {
+      return std::get<typename group_for_comp<Ts...>::type>(groups).add(std::move(t));
+    }
+    template <typename... Ts>
+    auto add(std::tuple<Ts...> const& t) {
+      return std::get<typename group_for_comp<Ts...>::type>(groups).add(t);
+    }
+    template <typename... Ts>
+    auto add(std::tuple<Ts...>& t) {
+      return std::get<typename group_for_comp<Ts...>::type>(groups).add(t);
     }
 
-    auto& kill(handle const& h) {
-      if (!entity.valid(h)) return *this;
-      entity.get(h).bset.set(0);
+    ///
+    template <std::size_t I>
+    void remove_impl(group_tuple& t, handle& h) {
+      std::get<I>(t).erase(h);
+    }
+    template <std::size_t... Is>
+    void remove_dispatch(handle& h, std::index_sequence<Is...>) {
+      static constexpr decltype(&self_t::remove_impl<0>) a[] = {&self_t::remove_impl<Is>...};
+      (this->*(a[h.group()]))(groups, h);
+    }
+    void remove(handle& h) {
+      if (!valid(h)) return;
+      remove_dispatch(h, group_index_seq{});
+    }
+
+    ///
+    template <typename...>
+    struct size_impl;
+    template <typename... Ts>
+    struct size_impl<std::tuple<Ts...>> {
+      template <typename Self>
+      static auto call(Self const& self) {
+        return (std::get<Ts>(self.groups).size() + ...);
+      }
+    };
+    auto size() const { return size_impl<group_tuple>::call(*this); }
+
+    ///
+    bool alive(handle const& h) const {
+      return valid(h) && std::find(std::begin(killed), std::end(killed), h) == std::end(killed);
+    }
+
+    void kill(handle const& h)  // TODO: multiple kill
+    {
       killed.push_back(h);
-      return *this;
     }
 
-    auto& reclaim() {
-      std::for_each(std::begin(killed), std::end(killed), [this](auto h) { remove(h); });
+    void reclaim() {
+      if (killed.empty()) return;
+      std::for_each(std::begin(killed), std::end(killed), [this](auto& h) { remove(h); });
       killed.clear();
-      return *this;
     }
 
-    bool valid(handle const& h) const { return entity.valid(h); }
-
-    bool alive(handle const& h) const { return valid(h) && !entity.get(h).bset[0]; }
-
-    template <typename T = void>
-    std::enable_if_t<std::is_same<T, void>::value, std::size_t> size() const {
-      return entity.size();
+    ///
+    template <std::size_t I>
+    auto valid_impl(group_tuple const& t, handle const& h) const {
+      return std::get<I>(t).valid(h);
     }
-
-    template <typename T = void>
-    std::enable_if_t<!std::is_same<T, void>::value, std::size_t> size() const {
-      constexpr auto i = index_of_comp<T>{};
-      static_assert(i != meta::npos());
-      auto& a = std::get<i>(component_data);
-      return a.size();
+    template <std::size_t... Is>
+    auto valid_dispatch(handle const& h, std::index_sequence<Is...>) const {
+      static constexpr decltype(&self_t::valid_impl<0>) a[] = {&self_t::valid_impl<Is>...};
+      return (this->*(a[h.group()]))(groups, h);
     }
+    auto valid(handle const& h) const { return valid_dispatch(h, group_index_seq{}); }
 
-    template <typename T>
-    auto& push(handle const& h, T&& comp) {
-      constexpr auto i = index_of_comp<T>{};
-      static_assert(i != meta::npos());
-      auto& a = std::get<i>(component_data);
-      auto const& c = a.push(std::forward<T>(comp));
-      auto& d = entity.get(h);
-      d.bset.set(bset_comp_index(i));
-      d.component[i] = c;
-      return *this;
+    ///
+    template <typename T, std::size_t I>
+    auto& get_impl(group_tuple& t, handle const& h) {
+      auto p = std::get<I>(t).template get<T>(h);
+      assert(p != nullptr && "T is not a valid component for the supplied handle");
+      return *p;
     }
-
-    template <typename T, typename... Args>
-    auto& emplace(handle const& h, Args&&... args) {
-      constexpr auto i = index_of_comp<T>{};
-      static_assert(i != meta::npos());
-      auto& a = std::get<i>(component_data);
-      auto const& c = a.emplace(std::forward<Args>(args)...);
-      auto& d = entity.get(h);
-      d.bset.set(bset_comp_index(i));
-      d.component[i] = c;
-      // return *this;
-      return get<T>(h);
+    template <typename T, std::size_t... Is>
+    auto& get_dispatch(handle const& h, std::index_sequence<Is...>) {
+      static constexpr decltype(&self_t::get_impl<T, 0>) a[] = {&self_t::get_impl<T, Is>...};
+      return (this->*(a[h.group()]))(groups, h);
     }
-
-    template <typename T>
-    auto& erase(handle const& h) {
-      constexpr auto i = index_of_comp<T>{};
-      static_assert(i != meta::npos());
-      auto& d = entity.get(h);
-      assert(d.bset[bset_comp_index(i)]);
-      d.bset.reset(bset_comp_index(i));
-      auto& c = d.component[i];
-      auto& a = std::get<i>(component_data);
-      a.erase(c);
-      return *this;
+    template <typename T, std::size_t I>
+    auto const& get_const_impl(group_tuple const& t, handle const& h) const {
+      auto p = std::get<I>(t).template get<T>(h);
+      assert(p != nullptr && "T is not a valid component for the supplied handle");
+      return *p;
     }
-
-    template <typename T>
-    auto& tag(handle const& h) {
-      constexpr auto i = index_of_tag<T>{};
-      static_assert(i != meta::npos());
-      auto& d = entity.get(h);
-      d.bset.set(bset_tag_index(i));
-      return *this;
+    template <typename T, std::size_t... Is>
+    auto const& get_dispatch(handle const& h, std::index_sequence<Is...>) const {
+      static constexpr decltype(&self_t::get_const_impl<T, 0>) a[] = {
+        &self_t::get_const_impl<T, Is>...};
+      return (this->*(a[h.group()]))(groups, h);
     }
+    template <typename... Ts>
+    struct get_fw {
+      template <typename Self>
+      static decltype(auto) call(Self& self, handle const& h) {
+        if constexpr (sizeof...(Ts) == 1) {
+          return (self.template get_dispatch<Ts>(h, group_index_seq{}), ...);
+        } else {
+          return std::tuple<std::add_lvalue_reference_t<Ts>...>{
+            self.template get_dispatch<Ts>(h, group_index_seq{})...};
+        }
+      }
+      template <typename Self>
+      static decltype(auto) call(Self const& self, handle const& h) {
+        if constexpr (sizeof...(Ts) == 1) {
+          return (self.template get_dispatch<Ts>(h, group_index_seq{}), ...);
+        } else {
+          return std::tuple<std::add_lvalue_reference_t<std::add_const_t<Ts>>...>{
+            self.template get_dispatch<Ts>(h, group_index_seq{})...};
+        }
+      }
+    };
+    template <typename... Ts>
+    struct get_fw<meta::list<Ts...>> : get_fw<Ts...> {};
 
-    template <typename T>
-    auto& untag(handle const& h) {
-      constexpr auto i = index_of_tag<T>{};
-      static_assert(i != meta::npos());
-      auto& d = entity.get(h);
-      d.bset.reset(bset_tag_index(i));
-      return *this;
-    }
-
-    template <typename T>
-    auto& get(handle const& h) {
-      constexpr auto i = index_of_comp<T>{};
-      static_assert(i != meta::npos());
-      auto& d = entity.get(h);
-      assert(d.bset[bset_comp_index(i)]);
-      auto const& c = d.component[i];
-      auto& a = std::get<i>(component_data);
-      return a.get(c);
-    }
-
-    template <typename T>
-    auto const& get(handle const& h) const {
-      constexpr auto i = index_of_comp<T>{};
-      static_assert(i != meta::npos());
-      auto& d = entity.get(h);
-      assert(d.bset[bset_comp_index(i)]);
-      auto const& c = d.component[i];
-      auto& a = std::get<i>(component_data);
-      return a.get(c);
+    template <typename... T>
+    decltype(auto) get(handle const& h) {
+      return get_fw<T...>::call(*this, h);
     }
 
     template <typename... T>
-    bool has(handle const& h) const {
-      static_assert(((index_of_all<T>{} != meta::npos()) && ...));
-      auto const& d = entity.get(h);
-      return (d.bset[bset_all_index(index_of_all<T>{})] && ...);
+    decltype(auto) get(handle const& h) const {
+      return get_fw<T...>::call(*this, h);
     }
 
-    template <typename T>
-    auto* data() {
-      constexpr auto i = index_of_comp<T>{};
-      static_assert(i != meta::npos());
-      auto& a = std::get<i>(component_data);
-      return a.data();
-    }
-
-    template <typename F>
-    auto for_each(F&& f) const {
-      for (auto const& e : entity.item_array) {
-        if (e.ctr != handle::nctr) std::forward<F>(f)(handle(e.idx, e.ctr));
-      }
-    }
-
-    template <typename...>
-    struct for_each_matching_impl;
-    template <typename... T, typename... C>
-    struct for_each_matching_impl<meta::list<T...>, meta::list<C...>> {
-      static_assert(((index_of_all<T>{} != meta::npos()) && ...));
-      template <typename S, typename F, typename H>
-      static auto call(S&& self, F&& f, H const& h) {
-        auto const& d = std::forward<S>(self).entity.get(h);
-        if ((d.bset[bset_all_index(index_of_all<T>{})] && ...)) {
-          std::forward<F>(f)(h, std::forward<S>(self).template get<C>(h)...);
-        }
+    ///
+    template <bool, typename...>
+    struct for_each_impl;
+    template <bool Handle, typename... Cs, typename T>
+    struct for_each_impl<Handle, meta::list<Cs...>, T> {
+      template <typename Self, typename F>
+      static void call(Self& self, F&& f) {
+        (std::get<Cs>(self.groups).template for_each<Handle, T>(std::forward<F>(f)), ...);
       }
     };
-
-    template <typename T>
-    struct comp_pred : std::integral_constant<bool, index_of_comp<T>{} != meta::npos()> {};
-
     template <typename L, typename F>
-    auto for_each_matching(F&& f)  // TODO: merge const and non const
-    {
-      using C = meta::filter<L, meta::quote<comp_pred>>;
-      for (auto const& e : entity.item_array) {
-        if (e.ctr != handle::nctr) {
-          for_each_matching_impl<L, C>::call(*this, std::forward<F>(f), handle(e.idx, e.ctr));
-        }
-      }
-    }
-    template <typename L, typename F>
-    auto for_each_matching(F&& f) const {
-      using C = meta::filter<L, meta::quote<comp_pred>>;
-      for (auto const& e : entity.item_array) {
-        if (e.ctr != handle::nctr) {
-          for_each_matching_impl<L, C>::call(*this, std::forward<F>(f), handle(e.idx, e.ctr));
-        }
-      }
+    void for_each(F&& f) {
+      using meta::placeholders::_a;
+      using hand = meta::in<L, handle>;
+      using list = meta::filter<L, meta::lambda<_a, meta::lazy::not_<std::is_same<_a, handle>>>>;
+      using select = meta::filter<group_list, meta::lambda<_a, impl::is_comp<_a, list>>>;
+      for_each_impl<hand{}, select, list>::call(*this, std::forward<F>(f));
     }
   };
 }

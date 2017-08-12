@@ -4,6 +4,7 @@
 #pragma clang diagnostic ignored "-Wfloat-equal"
 #endif
 #include <rako/entity_manager.hpp>
+#include <string>
 #include "./simple_test.hpp"
 #include "./timer.hpp"
 
@@ -11,446 +12,188 @@ using namespace rako;
 using std::cout;
 using std::endl;
 
-//
 struct pos {
-  pos()
-    : x(0)
-    , y(0) {}
-  pos(int x, int y)
-    : x(x)
-    , y(y) {}
-  pos(pos const&) = default;
-  pos(pos&&) = default;
-  pos& operator=(pos const&) = default;
-  pos& operator=(pos&&) = default;
-
   int x, y;
 };
-
-struct body {
-  body()
-    : x(0)
-    , y(0)
-    , vel(0) {}
-  body(int x, int y, int v)
-    : x(x)
-    , y(y)
-    , vel(v) {}
-  body(body const&) = default;
-  body(body&&) = default;
-  body& operator=(body const&) = default;
-  body& operator=(body&&) = default;
-
-  int x, y, vel;
+struct vel {
+  int x, y;
+};
+struct name {
+  std::string name;
 };
 
-auto test_blah() {
-  using l = meta::list<int, double, pos>;
+auto test_for_each_handle() {
 
-  entity_manager<l> em;
+  using A = meta::list<pos, vel>;
+  using B = meta::list<pos, name>;
 
-  auto h = em.create();
-  CHECK(em.valid(h));
-  CHECK(em.alive(h));
+  using em_t = entity_manager<A, B>;
+  using handle = em_t::handle;
 
-  em.emplace<int>(h, 42);
-  em.emplace<double>(h, 3.14);
-  CHECK(em.valid(h));
-  CHECK(em.alive(h));
+  em_t em;
 
-  CHECK(em.has<int>(h));
-  CHECK(em.has<double>(h));
-  CHECK(!em.has<pos>(h));
+  std::vector<handle> v1 = {em.add(pos{1, 2}, vel{3, 4}), em.add(pos{11, 22}, vel{33, 44}),
+                            em.add(pos{6, 7}, name{"hello"})};
 
-  auto& ci = em.get<int>(h);
-  CHECK(ci == 42);
+  CHECK(v1.size() == 3u);
 
-  auto& cd = em.get<double>(h);
-  CHECK(cd == 3.14);
-  cd = 2.718;
-  CHECK(em.get<double>(h) == 2.718);
+  std::vector<handle> v2;
+  em.for_each<meta::list<pos>>([&](auto&) { v2.push_back(handle()); });
+  CHECK(v1.size() == v2.size());
+  v2.clear();
 
-  // auto& cp = em.get<pos>(h); // assert
+  em.for_each<meta::list<handle, pos>>([&](auto h, auto&) { v2.push_back(h); });
 
-  em.emplace<pos>(h, 5, 7);
-  CHECK(em.has<pos>(h));
-  auto& cp = em.get<pos>(h);
-  CHECK((cp.x == 5 && cp.y == 7));
-  cp.x += 1;
-  cp.y += 2;
-  auto& cpp = em.get<pos>(h);
-  CHECK((cpp.x == 6 && cpp.y == 9));
-
-  CHECK((em.has<pos, int, double>(h)));
-
-  CHECK(em.has<double>(h));
-  em.erase<double>(h);
-  CHECK(!em.has<double>(h));
-
-  CHECK(!(em.has<pos, int, double>(h)));
-  CHECK((em.has<pos, int>(h)));
-
-  em.remove(h);
-  CHECK(!em.alive(h));
-  CHECK(!em.valid(h));
+  CHECK(v1.size() == v2.size());
+  CHECK(v1 == v2);
 }
 
-auto test_blah2() {
-  srand(static_cast<unsigned>(time(0)));
+auto test_kill() {
+  using A = meta::list<pos, vel>;
+  using B = meta::list<pos, name>;
 
-  using l = meta::list<body>;
-  entity_manager<l> em;
+  using em_t = entity_manager<A, B>;
+  using handle = em_t::handle;
 
-  for (auto i = 0; i < 1000; ++i) {
-    auto h = em.create();
-    CHECK(em.valid(h));
-    CHECK(em.alive(h));
-    em.emplace<body>(h, rand() % 100, rand() % 100, rand() % 100);
-  }
-}
+  em_t em;
+  CHECK(em.size() == 0u);
 
-auto test_blah3() {
-  entity_manager<meta::list<int, double, std::string>> em;
+  auto h1 = em.add(pos{1, 2}, vel{3, 4});
+  /*auto h2 = */ em.add(pos{11, 22}, vel{33, 44});
+  /*auto h3 = */ em.add(pos{6, 7}, name{"hello"});
 
-  auto z = em.create();
-  CHECK(em.size() == 1ul);
-  CHECK(em.alive(z));
-  CHECK(em.valid(z));
-  CHECK((!em.has<int>(z) && !em.has<double>(z) && !em.has<std::string>(z)));
+  std::vector<handle> v1;
+  em.for_each<meta::list<handle, pos>>([&](auto h, auto&) { v1.push_back(h); });
+  CHECK(v1.size() == 3u);
+  CHECK(em.size() == 3u);
+  v1.clear();
 
-  em.kill(z);
-  CHECK(em.size() == 1ul);
-  CHECK(!em.alive(z));
-  CHECK(em.valid(z));
-
-  em.remove(z);
-  CHECK(em.size() == 0ul);
-  CHECK(!em.alive(z));
-  CHECK(!em.valid(z));
-
-  z = em.create();
-  CHECK(em.size() == 1ul);
-  CHECK(em.alive(z));
-  CHECK(em.valid(z));
-
-  auto z2 = em.create();
-  CHECK(em.size() == 2ul);
-  CHECK(em.alive(z2));
-  CHECK(em.valid(z2));
-
-  em.kill(z);
-  CHECK(em.size() == 2ul);
-  CHECK(!em.alive(z));
-  CHECK(em.valid(z));
-  CHECK(em.alive(z2));
-  CHECK(em.valid(z2));
+  em.kill(h1);
+  em.for_each<meta::list<handle, pos>>([&](auto h, auto&) { v1.push_back(h); });
+  CHECK(v1.size() == 3u);
+  v1.clear();
 
   em.reclaim();
-  CHECK(em.size() == 1ul);
-  CHECK(!em.alive(z));
-  CHECK(!em.valid(z));
-  CHECK(em.alive(z2));
-  CHECK(em.valid(z2));
 
-  {
-    CHECK(!em.has<int>(z2));
-    em.emplace<int>(z2, 0);
-    CHECK((em.has<int>(z2) && !em.has<double>(z2) && !em.has<std::string>(z2)));
-    auto i = em.get<int>(z2);
-    CHECK(i == 0);
-
-    em.push<int>(z2, 1);
-    i = em.get<int>(z2);
-    CHECK(em.has<int>(z2));
-    CHECK(i == 1);
-
-    auto& j = em.get<int>(z2);
-    ++j;
-    auto k = em.get<int>(z2);
-    CHECK(k == 2);
-
-    em.erase<int>(z2);
-    CHECK(!em.has<int>(z2));
-  }
-
-  {
-    CHECK(!em.has<std::string>(z2));
-    em.emplace<std::string>(z2, "hi");
-    CHECK((!em.has<int>(z2) && !em.has<double>(z2) && em.has<std::string>(z2)));
-    auto& i = em.get<std::string>(z2);
-    CHECK(i == "hi");
-
-    em.push<std::string>(z2, "hello");
-    auto& j = em.get<std::string>(z2);
-    CHECK(em.has<std::string>(z2));
-    CHECK(j == "hello");
-
-    j = "bjr";
-    CHECK(em.has<std::string>(z2));
-    CHECK(j == "bjr");
-
-    em.remove(z2);
-    CHECK(em.size() == 0ul);
-    CHECK(!em.alive(z2));
-    CHECK(!em.valid(z2));
-  }
+  em.for_each<meta::list<handle, pos>>([&](auto h, auto&) { v1.push_back(h); });
+  CHECK(v1.size() == 2u);
+  CHECK(em.size() == 2u);
+  v1.clear();
 }
 
-auto test_reclaim() {
-  using l = meta::list<int, double, pos>;
+auto test_struct_binding() {
+  using A = meta::list<pos, vel>;
+  using B = meta::list<pos, name>;
 
-  entity_manager<l> em;
-  CHECK(em.size() == 0ul);
+  using em_t = entity_manager<A, B>;
+  // using handle = em_t::handle;
 
-  auto h = em.create();
-  CHECK(em.valid(h));
-  CHECK(em.alive(h));
-  CHECK(em.size() == 1ul);
+  em_t em;
 
-  em.reclaim();
-  CHECK(em.valid(h));
-  CHECK(em.alive(h));
-  CHECK(em.size() == 1ul);
+  auto h1 = em.add(pos{1, 2}, vel{3, 4});
+  /*auto h2 = */ em.add(pos{11, 22}, vel{33, 44});
+  auto h3 = em.add(pos{6, 7}, name{"hello"});
 
-  auto h2 = em.create();
-  CHECK(em.valid(h2));
-  CHECK(em.alive(h2));
-  CHECK(em.size() == 2ul);
+  auto p = em.get<pos>(h1);
+  ++p.x;
+  CHECK((p.x == 2 && p.y == 2));
+  p = em.get<pos>(h1);
+  CHECK((p.x == 1 && p.y == 2));
 
-  em.kill(h);
-  CHECK(em.valid(h));
-  CHECK(!em.alive(h));
-  CHECK(em.size() == 2ul);
+  auto& pp = em.get<pos>(h1);
+  ++pp.x;
+  CHECK((pp.x == 2 && pp.y == 2));
+  p = em.get<pos>(h1);
+  CHECK((p.x == 2 && p.y == 2));
 
-  em.reclaim();
-  CHECK(!em.valid(h));
-  CHECK(!em.alive(h));
-  CHECK(em.size() == 1ul);
+  auto v = em.get<vel>(h1);
+  CHECK((v.x == 3 && v.y == 4));
 
-  //  em.kill(h); // noop
-  //  CHECK(!em.valid(h));
-  //  CHECK(!em.alive(h));
-  //  CHECK(em.size() == 1ul);
+  auto[ps, vs] = em.get<pos, vel>(h1);
+  ++ps.x;
+  ++vs.y;
+  CHECK((ps.x == 3 && ps.y == 2 && vs.x == 3 && vs.y == 5));
 
-  em.kill(h2);
-  CHECK(em.valid(h2));
-  CHECK(!em.alive(h2));
-  CHECK(em.size() == 1ul);
+  auto[ps2, vs2] = em.get<pos, vel>(h1);
+  CHECK((ps2.x == 3 && ps2.y == 2 && vs2.x == 3 && vs2.y == 5));
 
-  em.reclaim();
-  // em.remove(h2);
-  CHECK(!em.valid(h2));
-  CHECK(!em.alive(h2));
-  CHECK(em.size() == 0ul);
+  auto p2 = em.get<pos>(h3);
+  CHECK((p2.x == 6 && p2.y == 7));
+
+  auto[ps3, ns3] = em.get<meta::list<pos, name>>(h3);
+  CHECK((ps3.x == 6 && ps3.y == 7 && ns3.name.size() == 5));
+
+  auto& pp2 = em.get<meta::list<pos>>(h3);
+  ++pp2.x;
+  CHECK((pp2.x == 7 && pp2.y == 7));
+  CHECK(em.get<meta::list<pos>>(h3).x == 7);
+
+  [h1, h3](em_t const& em) {
+    auto p = em.get<pos>(h1);
+    CHECK((p.x == 3 && p.y == 2));
+    auto v = em.get<vel>(h1);
+    CHECK((v.x == 3 && v.y == 5));
+
+    auto[ps, vs] = em.get<pos, vel>(h1);
+    CHECK((ps.x == 3 && ps.y == 2 && vs.x == 3 && vs.y == 5));
+
+    auto const[ps2, vs2] = em.get<pos, vel>(h1);
+    CHECK((ps2.x == 3 && ps2.y == 2 && vs2.x == 3 && vs2.y == 5));
+
+    auto p2 = em.get<pos>(h3);
+    CHECK((p2.x == 7 && p2.y == 7));
+
+    auto[ps3, ns3] = em.get<meta::list<pos, name>>(h3);
+    CHECK((ps3.x == 7 && ps3.y == 7 && ns3.name.size() == 5));
+
+    auto& pp2 = em.get<meta::list<pos>>(h3);
+    //++pp2.x;
+    CHECK((pp2.x == 7 && pp2.y == 7));
+  }(em);
 }
 
-auto test_reclaim2() {
-  using l = meta::list<int, double, pos>;
+decltype(auto) ft() {
+  static auto x = 0;
+  static auto y = 0;
+  return std::tuple<int&, int&>{x, y};  // std::make_tuple(x, y);
+}
+auto test_struct_binding2() {
+  auto[x, y] = ft();
+  CHECK((x == 0 && y == 0));
+  ++x;
+  ++y;
+  auto[x2, y2] = ft();
+  CHECK((x2 == 1 && y2 == 1));
 
-  entity_manager<l> em;
-  CHECK(em.size() == 0ul);
-
-  auto h = em.create();
-  CHECK(em.valid(h));
-  CHECK(em.alive(h));
-  CHECK(em.size() == 1ul);
-
-  //  em.reclaim();
-  //  CHECK(em.valid(h));
-  //  CHECK(em.alive(h));
-  //  CHECK(em.size() == 1ul);
-
-  em.kill(h);
-  CHECK(em.valid(h));
-  CHECK(!em.alive(h));
-  CHECK(em.size() == 1ul);
-
-  em.reclaim();
-  CHECK(!em.valid(h));
-  CHECK(!em.alive(h));
-  CHECK(em.size() == 0ul);
-
-  auto h2 = em.create();
-  CHECK(em.valid(h2));
-  CHECK(em.alive(h2));
-  CHECK(em.size() == 1ul);
-
-  em.kill(h2);
-  CHECK(em.valid(h2));
-  CHECK(!em.alive(h2));
-  CHECK(em.size() == 1ul);
-
-  em.reclaim();
-  // em.remove(h2);
-  CHECK(!em.valid(h2));
-  CHECK(!em.alive(h2));
-  CHECK(em.size() == 0ul);
-
-  CHECK(!em.valid(h));
-  CHECK(!em.alive(h));
+  auto[x3, y3] = ft();
+  CHECK((x3 == 1 && y3 == 1));
+  ++x;
+  ++y;
+  auto[x4, y4] = ft();
+  CHECK((x4 == 2 && y4 == 2));
 }
 
-struct tag1 {};
-struct tag2 {};
+auto test_groups() {
+  using A = meta::list<pos, vel>;
+  using B = meta::list<pos, vel>;
+  using C = meta::list<pos, vel, name>;
+  using em_t = entity_manager<A, B, C>;
+  em_t em;
 
-auto test_blah4() {
-  using L = meta::list<int, body>;
-  using T = meta::list<tag1, tag2>;
-  {
-    entity_manager<L> em;
-    auto h = em.create();
-    em.emplace<body>(h, 42, 53, 72);
-    CHECK((!em.has<int>(h) && em.has<body>(h)));
-    auto& b = em.get<body>(h);
-    CHECK(b.x == 42);
-    CHECK(b.y == 53);
-    CHECK(++b.vel == 73);
-    auto c = em.get<body>(h);
-    CHECK(c.vel == 73);
-  }
-  {
-    entity_manager<L, T> em;
-    constexpr auto num_iter = 10;
-    for (int i = 0; i < num_iter; ++i) {
-      auto h = em.create();
-      body b(i, i * 10, i * 100);
-      em.push(h, b);
-    }
-    CHECK(em.size() == 10ul);
-    auto* p = em.data<body>();
-    int i = 0;
-    for (; i < static_cast<int>(em.size<body>()); ++i, ++p) {
-      CHECK(p->x == i);
-      CHECK(p->y == i * 10);
-      CHECK(p->vel == i * 100);
-    }
-    CHECK(i == num_iter);
+  /*auto h1 = */ em.add(pos{1, 2}, vel{3, 4});
+  /*auto h2 = */ em.add(pos{11, 22}, vel{33, 44});
+  /*auto h3 = */ em.add(pos{6, 7}, vel{42, 43}, name{"hello"});
 
-    int tot = 0;
-    em.for_each([&](auto e) { tot += em.get<body>(e).x; });
-    CHECK(tot == 45);
-    auto h = em.create();
-    em.emplace<int>(h, 1);
-    tot = 0;
-    em.for_each([&](auto e) {
-      if (em.has<body>(e)) tot += em.get<body>(e).x;
-    });
-    CHECK(tot == 45);
-    em.emplace<body>(h, 1, 2, 3);
-    tot = 0;
-    em.for_each([&](auto e) { tot += em.get<body>(e).y; });
-    CHECK(tot == 452);
-    em.erase<body>(h);
-    tot = 0;
-    em.for_each([&](auto e) {
-      if (em.has<body>(e)) {
-        tot += em.get<body>(e).y;
-        em.get<body>(e).vel += 10;
-      }
-    });
-    CHECK(tot == 450);
-
-    h = em.create();
-    em.emplace<int>(h, 42);
-    em.emplace<body>(h, 10, 20, 30);
-    em.tag<tag1>(h);
-    using sig = meta::list<body, int>;
-    em.for_each_matching<sig>([](auto, auto& b, auto& i) {
-      ++b.x;
-      ++i;
-    });
-    CHECK(em.get<body>(h).x == 11);
-    CHECK(em.get<int>(h) == 43);
-
-    tot = 0;
-    using sig2 = meta::list<tag1>;
-    em.for_each_matching<sig2>([&](auto) { ++tot; });
-    CHECK(tot == 1);
-  }
-  {
-    entity_manager<L, T> em;
-    auto h = em.create();
-    em.emplace<int>(h, 42);
-    em.emplace<body>(h, 10, 20, 30);
-    em.tag<tag1>(h);
-    using sig = meta::list<body, int>;
-
-    [](auto const& e) {
-      e.template for_each_matching<sig>([](auto, auto const& /*b*/, auto const& /*i*/) {});
-    }(em);
-  }
+  CHECK(false);
 }
-
-auto test_blah5() {
-  using C = meta::list<int, body>;
-  using T = meta::list<tag1, tag2>;
-
-  entity_manager<C, T> em;
-  auto h = em.create();
-  em.tag<tag1>(h);
-
-  CHECK(em.has<tag1>(h));
-  CHECK(!em.has<tag2>(h));
-  CHECK(!em.has<body>(h));
-
-  em.emplace<body>(h, 1, 2, 3);
-  CHECK(em.has<tag1, body>(h));
-
-  CHECK(!em.has<int, tag1, body>(h));
-
-  CHECK(em.has<tag1>(h));
-  em.untag<tag1>(h);
-  CHECK(!em.has<tag1>(h));
-}
-
-auto test_blah6() {
-  using std::cout;
-  using C = meta::list<int, body>;
-  using T = meta::list<tag1, tag2>;
-  using siga = meta::list<body>;
-
-  entity_manager<C, T> em;
-
-  constexpr auto num_iter = 100000;
-
-  test::timer t;
-  t.start();
-  for (int i = 0; i < num_iter; ++i) {
-    auto h = em.create();
-    em.emplace<int>(h, i);
-    em.emplace<body>(h, 1, 2, 3);
-  }
-  t.stop();
-  cout << t;
-
-  int tot = 0;
-  t.start();
-  em.for_each_matching<siga>([&tot](auto e, auto& b) {
-    CHECK(e.valid());
-    b.x += b.vel * 3;
-    b.y += b.vel * 3;
-    ++tot;
-  });
-  t.stop();
-  cout << t;
-  CHECK(tot == num_iter);
-}
-
-auto test_for() {}
-
-auto test_for2() {}
 
 int main() {
-  test_blah();
-  test_blah2();
-  test_blah3();
-  test_reclaim();
-  test_reclaim2();
-  test_blah4();
-  test_blah5();
-  test_blah6();
-  test_for();
-  test_for2();
+  test_for_each_handle();
+  test_kill();
+  test_struct_binding();
+  test_struct_binding2();
+
+  test_groups();
 
   return ::test_result();
 }
