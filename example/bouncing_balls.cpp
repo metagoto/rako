@@ -16,7 +16,7 @@
 
 using namespace rako;
 
-namespace component {
+namespace component {  // our components
   struct position {
     sf::Vector2f pos;
   };
@@ -36,9 +36,13 @@ namespace component {
 
 namespace c = component;
 
+// components group for the player entity
 using player_components = meta::list<c::position, c::velocity, c::acceleration, c::rect>;
+
+// components group for balls entities
 using ball_components = meta::list<c::position, c::velocity, c::acceleration, c::sprite>;
 
+// entity manager
 using manager = entity_manager<player_components, ball_components>;
 
 struct game {
@@ -96,6 +100,7 @@ struct game {
   }
 
   void update(sf::Time t) {
+    // player position
     sf::Vector2f a = {0, 0};
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) a.x -= 1.f;
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) a.x += 1.f;
@@ -108,12 +113,15 @@ struct game {
 
     auto const ts = t.asSeconds();
 
+    // update velocity and position for entities that have
+    // position, velocity and accelaration components
     em.for_each<meta::list<c::position, c::velocity, c::acceleration>>(
       [ts](auto& p, auto& v, auto& a) {
         v.vel += a.accel * ts;
         p.pos += v.vel * ts;
       });
 
+    // make entities bounce of the egdes of the window
     auto const ws = win.getSize();
     auto const radius = 14.f;
     em.for_each<meta::list<c::position, c::velocity>>([ws, radius](auto& p, auto& v) {
@@ -133,27 +141,32 @@ struct game {
       }
     });
 
+    // update sfml objects
     em.for_each<meta::list<c::position, c::rect>>(
       [](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
     em.for_each<meta::list<c::position, c::sprite>>(
       [](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
 
+    // put entities handle in a quadtree for an efficient collisions detection
     qtree.clear();
     em.for_each<meta::list<manager::handle, c::position>>(
       [this](auto h, auto const& p) { qtree.insert(h, p.pos.x, p.pos.y); });
 
+    // check if entities collide
+    // loop through quadtree nodes that contains at least 2 items
+    // struct item { handle obj; float x, y; };
     collnum = 0;
-    qtree.for_each([this, ts, radius](auto const& nodes) {
-      for (auto i = 0u; i < nodes.size(); ++i) {
-        for (auto j = i + 1; j < nodes.size(); ++j) {
-          auto const& x1 = nodes[i].x;
-          auto const& y1 = nodes[i].y;
-          auto const& x2 = nodes[j].x;
-          auto const& y2 = nodes[j].y;
+    qtree.for_each([this, ts, radius](auto const& items) {
+      for (auto i = 0u; i < items.size(); ++i) {
+        for (auto j = i + 1; j < items.size(); ++j) {
+          auto const x1 = items[i].x;
+          auto const y1 = items[i].y;
+          auto const x2 = items[j].x;
+          auto const y2 = items[j].y;
           if (x1 < x2 + radius && x1 + radius > x2 && y1 < y2 + radius && y1 + radius > y2) {
 
-            auto const& h1 = nodes[i].obj;
-            auto const& h2 = nodes[j].obj;
+            auto const& h1 = items[i].obj;
+            auto const& h2 = items[j].obj;
 
             auto[p1, v1] = em.get<c::position, c::velocity>(h1);
             auto[p2, v2] = em.get<c::position, c::velocity>(h2);
@@ -211,7 +224,7 @@ struct game {
     win.display();
   }
 
-  void run_thread() {
+  void run_thread() {  // very naive. dont do it that way in prod ;)
     auto const tpf = sf::seconds(1.f / 60.f);
     sf::Clock clock;
     sf::Time time_since_last_update = sf::Time::Zero;
@@ -240,6 +253,7 @@ struct game {
     }
   }
 
+  // some stats displayed on screen
   void update_stats(sf::Time elapsed_time) {
     using std::to_string;
     stats_time += elapsed_time;
@@ -253,15 +267,14 @@ struct game {
       std::get<0>(stats_fps) = (std::get<0>(stats_fps) + stats_frames) / 2;
       if (std::get<1>(stats_fps) > stats_frames) std::get<1>(stats_fps) = stats_frames;
       if (std::get<2>(stats_fps) < stats_frames) std::get<2>(stats_fps) = stats_frames;
-
       stats_time -= sf::seconds(1.0f);
       stats_frames = 0;
     }
   }
 
   ~game() {
-    std::cout << "stats: " << std::get<0>(stats_fps) << " " << std::get<1>(stats_fps) << " "
-              << std::get<2>(stats_fps) << " " << std::endl;
+    std::cout << "fps (av, min, max): " << std::get<0>(stats_fps) << ", " << std::get<1>(stats_fps)
+              << ", " << std::get<2>(stats_fps) << " " << std::endl;
   }
 
   sf::RenderWindow win;

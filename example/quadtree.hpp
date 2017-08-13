@@ -13,7 +13,7 @@ namespace rako {
     using self_t = quadtree_node<value_type, ItemsPerNode, MaxLevel>;
 
     struct data {  // short POD data
-      T obj;
+      value_type obj;
       float x, y;
     };
 
