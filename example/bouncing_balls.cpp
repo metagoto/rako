@@ -1,4 +1,4 @@
-#ifdef __clang__
+#ifdef __clang__  // silence these SFML warnings (-Werror)
 #pragma clang diagnostic ignored "-Wdeprecated"
 #pragma clang diagnostic ignored "-Wsign-conversion"
 #pragma clang diagnostic ignored "-Wdocumentation"
@@ -63,11 +63,11 @@ struct game {
   }
 
   void make_player() {
-    c::rect r;
-    r.obj.setFillColor(sf::Color::Red);
-    r.obj.setSize({14.f, 14.f});
-    player_handle =
-      em.add(c::position{{50.f, 50.f}}, c::velocity{{0.f, 0.f}}, c::acceleration{{0.f, 0.f}}, r);
+    sf::RectangleShape r;
+    r.setFillColor(sf::Color::Red);
+    r.setSize({14.f, 14.f});
+    player_handle = em.add(c::position{{50.f, 50.f}}, c::velocity{{0.f, 0.f}},
+                           c::acceleration{{0.f, 0.f}}, c::rect{r});
   }
 
   void make_particles(int num) {
@@ -78,41 +78,6 @@ struct game {
       sp.obj.setTexture(texture);
       em.add(c::position{{x * 400 + 400, y * 300 + 300}}, c::velocity{{x * 100.f, y * 100.f}},
              c::acceleration{{0, 0}}, sp);
-    }
-  }
-
-  void run() {
-    auto const tpf = sf::seconds(1.f / 60.f);
-    sf::Clock clock;
-    sf::Time time_since_last_update = sf::Time::Zero;
-
-    //win.setActive(false);
-    //std::thread th(&game::render_thread, this);
-
-    while (win.isOpen()) {
-      sf::Time elapsed_time = clock.restart();
-      time_since_last_update += elapsed_time;
-      while (time_since_last_update > tpf) {
-        time_since_last_update -= tpf;
-        process_input();
-        update(tpf);
-      }
-      //
-      update_stats(elapsed_time);
-      render();
-      //
-    }
-    //th.join();
-  }
-
-  void render_thread() {
-    sf::Clock clock;
-    sf::Time time_since_last_update = sf::Time::Zero;
-    while (win.isOpen()) {
-      sf::Time elapsed_time = clock.restart();
-      time_since_last_update += elapsed_time;
-      update_stats(elapsed_time);
-      render();
     }
   }
 
@@ -168,15 +133,12 @@ struct game {
       }
     });
 
-    em.reclaim();
-
     em.for_each<meta::list<c::position, c::rect>>(
       [](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
     em.for_each<meta::list<c::position, c::sprite>>(
       [](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
 
     qtree.clear();
-
     em.for_each<meta::list<manager::handle, c::position>>(
       [this](auto h, auto const& p) { qtree.insert(h, p.pos.x, p.pos.y); });
 
@@ -223,12 +185,59 @@ struct game {
     });
   }
 
+  void run(bool use_render_thread = false) {
+    if (use_render_thread) return run_thread();
+    auto const tpf = sf::seconds(1.f / 60.f);
+    sf::Clock clock;
+    sf::Time time_since_last_update = sf::Time::Zero;
+    while (win.isOpen()) {
+      sf::Time elapsed_time = clock.restart();
+      time_since_last_update += elapsed_time;
+      while (time_since_last_update > tpf) {
+        time_since_last_update -= tpf;
+        process_input();
+        update(tpf);
+      }
+      update_stats(elapsed_time);
+      render();
+    }
+  }
+
   void render() {
     win.clear();
     em.for_each<meta::list<c::sprite>>([this](auto const& o) { win.draw(o.obj); });
     win.draw(em.get<c::rect>(player_handle).obj);
     win.draw(stats_text);
     win.display();
+  }
+
+  void run_thread() {
+    auto const tpf = sf::seconds(1.f / 60.f);
+    sf::Clock clock;
+    sf::Time time_since_last_update = sf::Time::Zero;
+    win.setActive(false);
+    std::thread th(&game::render_thread, this);
+    while (win.isOpen()) {
+      sf::Time elapsed_time = clock.restart();
+      time_since_last_update += elapsed_time;
+      while (time_since_last_update > tpf) {
+        time_since_last_update -= tpf;
+        process_input();
+        update(tpf);
+      }
+    }
+    th.join();
+  }
+
+  void render_thread() {
+    sf::Clock clock;
+    sf::Time time_since_last_update = sf::Time::Zero;
+    while (win.isOpen()) {
+      sf::Time elapsed_time = clock.restart();
+      time_since_last_update += elapsed_time;
+      update_stats(elapsed_time);
+      render();
+    }
   }
 
   void update_stats(sf::Time elapsed_time) {
@@ -272,7 +281,7 @@ struct game {
 
 int main() {
   XInitThreads();
-  game g(800, 600, 300);  // 800x600 window, N bouncing balls
-  g.run();
+  game g(800, 600, 500);  // 800x600 window, N bouncing balls
+  g.run(false);           // run(true) for a dedicated render thread
   return 0;
 }
