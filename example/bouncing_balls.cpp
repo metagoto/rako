@@ -11,6 +11,9 @@
 #include <rako/entity_manager.hpp>
 #include "./quadtree.hpp"
 
+#include <X11/Xlib.h>
+#include <thread>
+
 using namespace rako;
 
 namespace component {
@@ -48,12 +51,12 @@ struct game {
     , stats_frames(0)
     , texture()
     , stats_fps(std::make_tuple(0, 10000, 0))
-    , qt(0, 0, width, height) {
+    , qtree(0, 0, width, height) {
     win.setKeyRepeatEnabled(false);
     font.loadFromFile("media/Sansation.ttf");
     stats_text.setFont(font);
     stats_text.setPosition(5.f, 5.f);
-    stats_text.setCharacterSize(12);
+    stats_text.setCharacterSize(14);
     texture.loadFromFile("media/bullet.png");
     make_player();
     make_particles(num_balls);
@@ -62,8 +65,7 @@ struct game {
   void make_player() {
     c::rect r;
     r.obj.setFillColor(sf::Color::Red);
-    r.obj.setSize({10.f, 10.f});
-    r.obj.setPosition(200.f, 200.f);
+    r.obj.setSize({14.f, 14.f});
     player_handle =
       em.add(c::position{{50.f, 50.f}}, c::velocity{{0.f, 0.f}}, c::acceleration{{0.f, 0.f}}, r);
   }
@@ -80,9 +82,13 @@ struct game {
   }
 
   void run() {
-    static auto tpf = sf::seconds(1.f / 60.f);
+    auto const tpf = sf::seconds(1.f / 60.f);
     sf::Clock clock;
     sf::Time time_since_last_update = sf::Time::Zero;
+
+    //win.setActive(false);
+    //std::thread th(&game::render_thread, this);
+
     while (win.isOpen()) {
       sf::Time elapsed_time = clock.restart();
       time_since_last_update += elapsed_time;
@@ -91,6 +97,20 @@ struct game {
         process_input();
         update(tpf);
       }
+      //
+      update_stats(elapsed_time);
+      render();
+      //
+    }
+    //th.join();
+  }
+
+  void render_thread() {
+    sf::Clock clock;
+    sf::Time time_since_last_update = sf::Time::Zero;
+    while (win.isOpen()) {
+      sf::Time elapsed_time = clock.restart();
+      time_since_last_update += elapsed_time;
       update_stats(elapsed_time);
       render();
     }
@@ -117,7 +137,7 @@ struct game {
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) a.y -= 1.f;
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) a.y += 1.f;
     constexpr const auto sqrt2 = 1.41421356237f;
-    auto vel = a * 40.f;
+    auto vel = a * 80.f;
     if (a.x != 0.f && a.y != 0.f) vel /= sqrt2;
     em.get<c::velocity>(player_handle).vel = vel;
 
@@ -155,14 +175,13 @@ struct game {
     em.for_each<meta::list<c::position, c::sprite>>(
       [](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
 
-    tcont.clear();  ////
-    qt.clear();
+    qtree.clear();
 
     em.for_each<meta::list<manager::handle, c::position>>(
-      [this](auto h, auto const& p) { qt.insert(h, p.pos.x, p.pos.y, tcont); });
+      [this](auto h, auto const& p) { qtree.insert(h, p.pos.x, p.pos.y); });
 
     collnum = 0;
-    tcont.test([this, ts, radius](auto const& nodes) {
+    qtree.for_each([this, ts, radius](auto const& nodes) {
       for (auto i = 0u; i < nodes.size(); ++i) {
         for (auto j = i + 1; j < nodes.size(); ++j) {
           auto const& x1 = nodes[i].x;
@@ -170,6 +189,7 @@ struct game {
           auto const& x2 = nodes[j].x;
           auto const& y2 = nodes[j].y;
           if (x1 < x2 + radius && x1 + radius > x2 && y1 < y2 + radius && y1 + radius > y2) {
+
             auto const& h1 = nodes[i].obj;
             auto const& h2 = nodes[j].obj;
 
@@ -205,26 +225,21 @@ struct game {
 
   void render() {
     win.clear();
-
     em.for_each<meta::list<c::sprite>>([this](auto const& o) { win.draw(o.obj); });
     win.draw(em.get<c::rect>(player_handle).obj);
-
-    // qt.draw(win);
-
     win.draw(stats_text);
     win.display();
   }
 
   void update_stats(sf::Time elapsed_time) {
     using std::to_string;
-
     stats_time += elapsed_time;
     stats_frames += 1;
     if (stats_time >= sf::seconds(1.0f)) {
       stats_text.setString("fps: " + to_string(stats_frames) + "\n" + "time / update: " +
                            to_string(stats_time.asMicroseconds() / stats_frames) + "us\n" +
                            "#entities: " + to_string(em.size()) + "\n" +
-                           "#tcont: " + to_string(tcont.size()) + " #coll: " + to_string(collnum));
+                           "#tcont: " + to_string(qtree.size()) + " #coll: " + to_string(collnum));
 
       std::get<0>(stats_fps) = (std::get<0>(stats_fps) + stats_frames) / 2;
       if (std::get<1>(stats_fps) > stats_frames) std::get<1>(stats_fps) = stats_frames;
@@ -250,15 +265,14 @@ struct game {
   std::tuple<std::size_t, std::size_t, std::size_t> stats_fps;  // av, min, max
   manager::handle player_handle;
 
-  using qtree_t = qtree<manager::handle, 256, 8>;
-  qtree_t qt;
-  tmpcont<qtree_t*> tcont;
+  using quadtree_t = quadtree<manager::handle, 256, 8>;
+  quadtree_t qtree;
   int collnum = 0;
 };
 
 int main() {
-  game g(800, 600, 500);  // 800x600 window, N bouncing balls
+  XInitThreads();
+  game g(800, 600, 300);  // 800x600 window, N bouncing balls
   g.run();
-
   return 0;
 }

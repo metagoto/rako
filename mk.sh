@@ -12,8 +12,8 @@ LIBCPP_INC="$CLANG_DIR/include/c++/v1"
 LIBCPP_LIB="$CLANG_DIR/lib"
 HANA_INC="$HANA_DIR/include"
 
-CXX_FLAGS="-stdlib=libc++ -std=c++1z -I$LIBCPP_INC -I$HANA_INC"
-CXX_LINKER_FLAGS="-stdlib=libc++ -L$LIBCPP_LIB -lc++ -lc++abi"
+CXX_FLAGS="-stdlib=libc++ -std=c++1z -I$LIBCPP_INC -I$HANA_INC -pthread"
+CXX_LINKER_FLAGS="-stdlib=libc++ -L$LIBCPP_LIB -lc++ -lc++abi -lpthread -lX11"
 
 export CXX="$CLANG_DIR/bin/clang++"
 export CC="$CLANG_DIR/bin/clang"
