@@ -38,11 +38,11 @@ auto test_for_each_handle() {
   CHECK(v1.size() == 3u);
 
   std::vector<handle> v2;
-  em.for_each<meta::list<pos>>([&](auto&) { v2.push_back(handle()); });
+  em.for_each<pos>([&](auto&) { v2.push_back(handle()); });
   CHECK(v1.size() == v2.size());
   v2.clear();
 
-  em.for_each<meta::list<handle, pos>>([&](auto h, auto&) { v2.push_back(h); });
+  em.for_each<handle, pos>([&](auto h, auto&) { v2.push_back(h); });
 
   CHECK(v1.size() == v2.size());
   CHECK(v1 == v2);
@@ -63,19 +63,19 @@ auto test_kill() {
   /*auto h3 = */ em.add(pos{6, 7}, name{"hello"});
 
   std::vector<handle> v1;
-  em.for_each<meta::list<handle, pos>>([&](auto h, auto&) { v1.push_back(h); });
+  em.for_each<handle, pos>([&](auto h, auto&) { v1.push_back(h); });
   CHECK(v1.size() == 3u);
   CHECK(em.size() == 3u);
   v1.clear();
 
   em.kill(h1);
-  em.for_each<meta::list<handle, pos>>([&](auto h, auto&) { v1.push_back(h); });
+  em.for_each<handle, pos>([&](auto h, auto&) { v1.push_back(h); });
   CHECK(v1.size() == 3u);
   v1.clear();
 
   em.reclaim();
 
-  em.for_each<meta::list<handle, pos>>([&](auto h, auto&) { v1.push_back(h); });
+  em.for_each<handle, pos>([&](auto h, auto&) { v1.push_back(h); });
   CHECK(v1.size() == 2u);
   CHECK(em.size() == 2u);
   v1.clear();
@@ -187,6 +187,22 @@ auto test_groups() {
   CHECK(true);
 }
 
+template <typename T>
+struct identity {
+  using type = T;
+};
+
+template <typename... T>
+void each(typename identity<std::function<void(T&...)>>::type f) {
+  static int i = 0;
+  static float j = 1.f;
+  f(i, j);
+}
+
+auto test_each() {
+  each<int, float>([](auto, auto const&) { CHECK(true); });
+}
+
 int main() {
   test_for_each_handle();
   test_kill();
@@ -194,6 +210,7 @@ int main() {
   test_struct_binding2();
 
   test_groups();
+  test_each();
 
   return ::test_result();
 }

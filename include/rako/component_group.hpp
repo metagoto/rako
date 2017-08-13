@@ -159,10 +159,8 @@ namespace rako {
       static void call(Self& self, F&& f) {
         for (std::size_t i = 0; i < self.sz; ++i) {
           auto id = self.item_array[i].table_idx;
-          auto idx = self.item_array[id].idx;
-          auto cnt = self.item_array[id].ctr;
-          std::forward<F>(f)(handle(idx, cnt, self_id),
-                             std::get<vector_t<Ts>>(self.components)[i]...);
+          auto h = handle(self.item_array[id].idx, self.item_array[id].ctr, self_id);
+          std::forward<F>(f)(h, std::get<vector_t<Ts>>(self.components)[i]...);
         }
       }
     };

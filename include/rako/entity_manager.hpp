@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <functional>
 #include <iterator>
 #include <tuple>
 #include <utility>
@@ -198,13 +199,18 @@ namespace rako {
         (std::get<Cs>(self.groups).template for_each<Handle, T>(std::forward<F>(f)), ...);
       }
     };
-    template <typename L, typename F>
-    void for_each(F&& f) {
+    template <typename T>
+    struct wrap {
+      using type = T;
+    };
+    template <typename... T>
+    void for_each(typename wrap<std::function<void(T&...)>>::type f) {
+      using L = meta::list<T...>;
       using meta::placeholders::_a;
       using hand = meta::in<L, handle>;
       using list = meta::filter<L, meta::lambda<_a, meta::lazy::not_<std::is_same<_a, handle>>>>;
       using select = meta::filter<group_list, meta::lambda<_a, impl::is_comp<_a, list>>>;
-      for_each_impl<hand{}, select, list>::call(*this, std::forward<F>(f));
+      for_each_impl<hand{}, select, list>::call(*this, f);
     }
   };
 }

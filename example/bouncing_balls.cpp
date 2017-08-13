@@ -17,6 +17,7 @@
 using namespace rako;
 
 namespace component {  // our components
+
   struct position {
     sf::Vector2f pos;
   };
@@ -36,13 +37,13 @@ namespace component {  // our components
 
 namespace c = component;
 
-// components group for the player entity
+// components list for the player entity
 using player_components = meta::list<c::position, c::velocity, c::acceleration, c::rect>;
 
-// components group for balls entities
+// components list for balls entities
 using ball_components = meta::list<c::position, c::velocity, c::acceleration, c::sprite>;
 
-// entity manager
+// entity manager type
 using manager = entity_manager<player_components, ball_components>;
 
 struct game {
@@ -100,7 +101,7 @@ struct game {
   }
 
   void update(sf::Time t) {
-    // player position
+    // update player position
     sf::Vector2f a = {0, 0};
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) a.x -= 1.f;
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) a.x += 1.f;
@@ -115,16 +116,15 @@ struct game {
 
     // update velocity and position for entities that have
     // position, velocity and accelaration components
-    em.for_each<meta::list<c::position, c::velocity, c::acceleration>>(
-      [ts](auto& p, auto& v, auto& a) {
-        v.vel += a.accel * ts;
-        p.pos += v.vel * ts;
-      });
+    em.for_each<c::position, c::velocity, c::acceleration>([ts](auto& p, auto& v, auto& a) {
+      v.vel += a.accel * ts;
+      p.pos += v.vel * ts;
+    });
 
     // make entities bounce of the egdes of the window
     auto const ws = win.getSize();
     auto const radius = 14.f;
-    em.for_each<meta::list<c::position, c::velocity>>([ws, radius](auto& p, auto& v) {
+    em.for_each<c::position, c::velocity>([ws, radius](auto& p, auto& v) {
       if (p.pos.x <= 0) {
         p.pos.x = 0;
         v.vel.x *= -1;
@@ -141,18 +141,12 @@ struct game {
       }
     });
 
-    // update sfml objects
-    em.for_each<meta::list<c::position, c::rect>>(
-      [](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
-    em.for_each<meta::list<c::position, c::sprite>>(
-      [](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
-
-    // put entities handle in a quadtree for an efficient collisions detection
+    // put entities handle in a quadtree for efficient collision detection
     qtree.clear();
-    em.for_each<meta::list<manager::handle, c::position>>(
+    em.for_each<manager::handle, c::position>(
       [this](auto h, auto const& p) { qtree.insert(h, p.pos.x, p.pos.y); });
 
-    // check if entities collide
+    // update colliding entities position and velocity
     // loop through quadtree nodes that contains at least 2 items
     // struct item { handle obj; float x, y; };
     collnum = 0;
@@ -165,12 +159,16 @@ struct game {
           auto const y2 = items[j].y;
           if (x1 < x2 + radius && x1 + radius > x2 && y1 < y2 + radius && y1 + radius > y2) {
 
+            // get handles for both colliding entities
             auto const& h1 = items[i].obj;
             auto const& h2 = items[j].obj;
 
+            // structured binding FTW ;)
+            // p1..v2 actually are references as per c++ standard
             auto[p1, v1] = em.get<c::position, c::velocity>(h1);
             auto[p2, v2] = em.get<c::position, c::velocity>(h2);
 
+            // compute and update positions and velocities
             auto const p21x = p2.pos.x - p1.pos.x;
             auto const p21y = p2.pos.y - p1.pos.y;
             auto const v21x = v2.vel.x - v1.vel.x;
@@ -196,6 +194,10 @@ struct game {
         }
       }
     });
+
+    // update sfml objects
+    em.for_each<c::position, c::rect>([](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
+    em.for_each<c::position, c::sprite>([](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
   }
 
   void run(bool use_render_thread = false) {
@@ -218,8 +220,11 @@ struct game {
 
   void render() {
     win.clear();
-    em.for_each<meta::list<c::sprite>>([this](auto const& o) { win.draw(o.obj); });
+    // draw balls
+    em.for_each<c::sprite>([this](auto const& o) { win.draw(o.obj); });
+    // draw player
     win.draw(em.get<c::rect>(player_handle).obj);
+    // draw stats
     win.draw(stats_text);
     win.display();
   }
@@ -261,8 +266,8 @@ struct game {
     if (stats_time >= sf::seconds(1.0f)) {
       stats_text.setString("fps: " + to_string(stats_frames) + "\n" + "time / update: " +
                            to_string(stats_time.asMicroseconds() / stats_frames) + "us\n" +
-                           "#entities: " + to_string(em.size()) + "\n" +
-                           "#tcont: " + to_string(qtree.size()) + " #coll: " + to_string(collnum));
+                           "#entities: " + to_string(em.size()) + "\n" + "#active qtree leaf: " +
+                           to_string(qtree.size()) + " #collisions: " + to_string(collnum));
 
       std::get<0>(stats_fps) = (std::get<0>(stats_fps) + stats_frames) / 2;
       if (std::get<1>(stats_fps) > stats_frames) std::get<1>(stats_fps) = stats_frames;
@@ -294,7 +299,7 @@ struct game {
 
 int main() {
   XInitThreads();
-  game g(800, 600, 500);  // 800x600 window, N bouncing balls
+  game g(800, 600, 300);  // 800x600 window, N bouncing balls
   g.run(false);           // run(true) for a dedicated render thread
   return 0;
 }
