@@ -37,10 +37,10 @@ namespace component {  // our components
 
 namespace c = component;
 
-// components list for the player entity
+// components group for the player entity
 using player_components = meta::list<c::position, c::velocity, c::acceleration, c::rect>;
 
-// components list for balls entities
+// components group for balls entities
 using ball_components = meta::list<c::position, c::velocity, c::acceleration, c::sprite>;
 
 // entity manager type
@@ -71,6 +71,9 @@ struct game {
     sf::RectangleShape r;
     r.setFillColor(sf::Color::Red);
     r.setSize({14.f, 14.f});
+    // create the payer and get back its handle for later use as (a member variable).
+    // the manager automatically knows in which group the new entity belongs.
+    // parameters order isn't important as long as their types form an entity group
     player_handle = em.add(c::position{{50.f, 50.f}}, c::velocity{{0.f, 0.f}},
                            c::acceleration{{0.f, 0.f}}, c::rect{r});
   }
@@ -146,8 +149,8 @@ struct game {
     em.for_each<manager::handle, c::position>(
       [this](auto h, auto const& p) { qtree.insert(h, p.pos.x, p.pos.y); });
 
-    // update colliding entities position and velocity
-    // loop through quadtree nodes that contains at least 2 items
+    // update colliding entities position and velocity.
+    // loop through quadtree nodes that contains at least 2 items.
     // struct item { handle obj; float x, y; };
     collnum = 0;
     qtree.for_each([this, ts, radius](auto const& items) {
