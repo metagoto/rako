@@ -55,13 +55,14 @@ struct game {
     , stats_time()
     , stats_frames(0)
     , texture()
-    , stats_fps(std::make_tuple(0, 10000, 0))
+    , stats_fps(std::make_tuple(0, -1, 0))
     , qtree(0, 0, width, height) {
     win.setKeyRepeatEnabled(false);
     font.loadFromFile("media/Sansation.ttf");
     stats_text.setFont(font);
-    stats_text.setPosition(5.f, 5.f);
-    stats_text.setCharacterSize(14);
+    stats_text.setColor(sf::Color::Green);
+    stats_text.setPosition(4.f, 4.f);
+    stats_text.setCharacterSize(15);
     texture.loadFromFile("media/bullet.png");
     make_player();
     make_particles(num_balls);
@@ -172,7 +173,7 @@ struct game {
         auto const m = p21x * v21x + p21y * v21y;
         if (m < 0.f) {
           ++collision_num;
-          // compute and update new positions and velocities
+          // compute and update positions and velocities
           auto const p12x = -1.f * p21x;
           auto const p12y = -1.f * p21y;
           auto const d1 = p12x * p12x + p12y * p12y;
@@ -285,12 +286,16 @@ struct game {
   sf::Text stats_text;
   sf::Time stats_time;
   std::size_t stats_frames;
-  manager em;
   sf::Texture texture;
-  std::tuple<std::size_t, std::size_t, std::size_t> stats_fps;  // av, min, max
-  manager::handle player_handle;
+  std::tuple<std::size_t, std::size_t, std::size_t> stats_fps;  // avg, min, max fps
 
-  using quadtree_t = quadtree<manager::handle, 256, 8>;
+  // entity manager
+  manager em;
+  // player handle
+  manager::handle player_handle;
+  // quadtree for collision detection
+  // <stored type, max items per quad, max depth>
+  using quadtree_t = quadtree<manager::handle, 128, 8>;
   quadtree_t qtree;
   int collision_num = 0;
 };

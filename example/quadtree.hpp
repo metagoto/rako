@@ -1,6 +1,5 @@
 #pragma once
 
-#include <SFML/Graphics.hpp>
 #include <algorithm>
 #include <cassert>
 #include <vector>
@@ -50,12 +49,10 @@ namespace rako {
       });
 
       items.clear();
-      if (quad[NW]->insert(std::move(v), x, y, active_nodes)) return true;
-      if (quad[NE]->insert(std::move(v), x, y, active_nodes)) return true;
-      if (quad[SE]->insert(std::move(v), x, y, active_nodes)) return true;
-      if (quad[SW]->insert(std::move(v), x, y, active_nodes)) return true;
-      assert(false);
-      return false;
+      return (quad[NW]->insert(std::move(v), x, y, active_nodes) ||
+              quad[NE]->insert(std::move(v), x, y, active_nodes) ||
+              quad[SE]->insert(std::move(v), x, y, active_nodes) ||
+              quad[SW]->insert(std::move(v), x, y, active_nodes));
     }
 
     void split() {
