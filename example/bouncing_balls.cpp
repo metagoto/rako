@@ -72,7 +72,7 @@ struct game {
     sf::RectangleShape r;
     r.setFillColor(sf::Color::Red);
     r.setSize({14.f, 14.f});
-    // create the payer and get back its handle for later use (as a member variable).
+    // create the player and get back its handle for later use (as a member variable).
     // the manager automatically knows in which group the new entity belongs.
     // parameters order isn't important as long as their types form an entity group
     player_handle =
@@ -105,7 +105,7 @@ struct game {
   }
 
   void update(sf::Time t) {
-    // update player position
+    // update player velocity (arrow keys)
     sf::Vector2f a = {0, 0};
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) a.x -= 1.f;
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) a.x += 1.f;
@@ -119,8 +119,8 @@ struct game {
     auto const ts = t.asSeconds();
 
     // update velocity and position for entities that have
-    // position, velocity and accelaration components
-    em.for_each<c::position, c::velocity, c::acceleration>([ts](auto& p, auto& v, auto& a) {
+    // all three position, velocity and accelaration components
+    em.for_each<c::position, c::velocity, c::acceleration>([ts](auto& p, auto& v, auto const a) {
       v.x += a.x * ts;
       v.y += a.y * ts;
       p.x += v.x * ts;
@@ -147,10 +147,10 @@ struct game {
       }
     });
 
-    // put entities handle in a quadtree for efficient collision detection
+    // put entities handles in quadtree for efficient collision detection
     qtree.clear();
     em.for_each<manager::handle, c::position>(
-      [this](auto h, auto const& p) { qtree.insert(h, p.x, p.y); });
+      [this](auto const h, auto const p) { qtree.insert(h, p.x, p.y); });
 
     collision_num = 0;
     // update position and velocity for colliding entities.
@@ -192,9 +192,8 @@ struct game {
       }
     });
     // update sfml objects
-    em.for_each<c::position, c::rect>([](auto const& p, auto& o) { o.obj.setPosition(p.x, p.y); });
-    em.for_each<c::position, c::sprite>(
-      [](auto const& p, auto& o) { o.obj.setPosition(p.x, p.y); });
+    em.for_each<c::position, c::rect>([](auto const p, auto& o) { o.obj.setPosition(p.x, p.y); });
+    em.for_each<c::position, c::sprite>([](auto const p, auto& o) { o.obj.setPosition(p.x, p.y); });
   }
 
   void run(bool use_render_thread = false) {
