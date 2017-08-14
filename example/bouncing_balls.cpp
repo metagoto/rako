@@ -19,13 +19,13 @@ using namespace rako;
 namespace component {  // our components
 
   struct position {
-    sf::Vector2f pos;
+    float x, y;
   };
   struct velocity {
-    sf::Vector2f vel;
+    float x, y;
   };
   struct acceleration {
-    sf::Vector2f accel;
+    float x, y;
   };
   struct rect {
     sf::RectangleShape obj;
@@ -71,11 +71,11 @@ struct game {
     sf::RectangleShape r;
     r.setFillColor(sf::Color::Red);
     r.setSize({14.f, 14.f});
-    // create the payer and get back its handle for later use as (a member variable).
+    // create the payer and get back its handle for later use (as a member variable).
     // the manager automatically knows in which group the new entity belongs.
     // parameters order isn't important as long as their types form an entity group
-    player_handle = em.add(c::position{{50.f, 50.f}}, c::velocity{{0.f, 0.f}},
-                           c::acceleration{{0.f, 0.f}}, c::rect{r});
+    player_handle =
+      em.add(c::position{50.f, 50.f}, c::velocity{0.f, 0.f}, c::acceleration{0.f, 0.f}, c::rect{r});
   }
 
   void make_particles(int num) {
@@ -84,8 +84,8 @@ struct game {
       float y = static_cast<float>(rand() / static_cast<float>(RAND_MAX)) - 0.5f;
       c::sprite sp;
       sp.obj.setTexture(texture);
-      em.add(c::position{{x * 400 + 400, y * 300 + 300}}, c::velocity{{x * 100.f, y * 100.f}},
-             c::acceleration{{0, 0}}, sp);
+      em.add(c::position{x * 400 + 400, y * 300 + 300}, c::velocity{x * 100.f, y * 100.f},
+             c::acceleration{0, 0}, sp);
     }
   }
 
@@ -113,94 +113,87 @@ struct game {
     constexpr const auto sqrt2 = 1.41421356237f;
     auto vel = a * 80.f;
     if (a.x != 0.f && a.y != 0.f) vel /= sqrt2;
-    em.get<c::velocity>(player_handle).vel = vel;
+    em.get<c::velocity>(player_handle) = {vel.x, vel.y};
 
     auto const ts = t.asSeconds();
 
     // update velocity and position for entities that have
     // position, velocity and accelaration components
     em.for_each<c::position, c::velocity, c::acceleration>([ts](auto& p, auto& v, auto& a) {
-      v.vel += a.accel * ts;
-      p.pos += v.vel * ts;
+      v.x += a.x * ts;
+      v.y += a.y * ts;
+      p.x += v.x * ts;
+      p.y += v.y * ts;
     });
 
     // make entities bounce of the egdes of the window
     auto const ws = win.getSize();
     auto const radius = 14.f;
     em.for_each<c::position, c::velocity>([ws, radius](auto& p, auto& v) {
-      if (p.pos.x <= 0) {
-        p.pos.x = 0;
-        v.vel.x *= -1;
-      } else if (p.pos.x + radius >= ws.x) {
-        p.pos.x = ws.x - radius;
-        v.vel.x *= -1;
+      if (p.x <= 0) {
+        p.x = 0;
+        v.x *= -1;
+      } else if (p.x + radius >= ws.x) {
+        p.x = ws.x - radius;
+        v.x *= -1;
       }
-      if (p.pos.y <= 0) {
-        p.pos.y = 0;
-        v.vel.y *= -1;
-      } else if (p.pos.y + radius >= ws.y) {
-        p.pos.y = ws.y - radius;
-        v.vel.y *= -1;
+      if (p.y <= 0) {
+        p.y = 0;
+        v.y *= -1;
+      } else if (p.y + radius >= ws.y) {
+        p.y = ws.y - radius;
+        v.y *= -1;
       }
     });
 
     // put entities handle in a quadtree for efficient collision detection
     qtree.clear();
     em.for_each<manager::handle, c::position>(
-      [this](auto h, auto const& p) { qtree.insert(h, p.pos.x, p.pos.y); });
+      [this](auto h, auto const& p) { qtree.insert(h, p.x, p.y); });
 
-    // update colliding entities position and velocity.
-    // loop through quadtree nodes that contains at least 2 items.
+    collision_num = 0;
+    // update position and velocity for colliding entities.
+    // loop over pair of items belonging to the same quad.
     // struct item { handle obj; float x, y; };
-    collnum = 0;
-    qtree.for_each([this, ts, radius](auto const& items) {
-      for (auto i = 0u; i < items.size(); ++i) {
-        for (auto j = i + 1; j < items.size(); ++j) {
-          auto const x1 = items[i].x;
-          auto const y1 = items[i].y;
-          auto const x2 = items[j].x;
-          auto const y2 = items[j].y;
-          if (x1 < x2 + radius && x1 + radius > x2 && y1 < y2 + radius && y1 + radius > y2) {
-
-            // get handles for both colliding entities
-            auto const& h1 = items[i].obj;
-            auto const& h2 = items[j].obj;
-
-            // structured binding FTW ;)
-            // p1..v2 actually are references as per c++ standard
-            auto[p1, v1] = em.get<c::position, c::velocity>(h1);
-            auto[p2, v2] = em.get<c::position, c::velocity>(h2);
-
-            // compute and update positions and velocities
-            auto const p21x = p2.pos.x - p1.pos.x;
-            auto const p21y = p2.pos.y - p1.pos.y;
-            auto const v21x = v2.vel.x - v1.vel.x;
-            auto const v21y = v2.vel.y - v1.vel.y;
-            auto const m = p21x * v21x + p21y * v21y;
-            if (m >= 0.f) continue;
-
-            auto const p12x = -1.f * p21x;
-            auto const p12y = -1.f * p21y;
-            auto const d1 = p12x * p12x + p12y * p12y;
-            auto const d2 = p21x * p21x + p21y * p21y;
-            auto const v1o = v1.vel;
-            auto const v2o = v2.vel;
-            v1.vel.x = v1o.x - m / d1 * p12x;
-            v1.vel.y = v1o.y - m / d1 * p12y;
-            v2.vel.x = v2o.x - m / d2 * p21x;
-            v2.vel.y = v2o.y - m / d2 * p21y;
-
-            p1.pos += v1.vel * ts;
-            p2.pos += v2.vel * ts;
-            ++collnum;
-          }
+    qtree.for_each_pair([this, ts, radius](auto const& item1, auto const& item2) {
+      // handle, x and y coordinates for each item
+      auto const[h1, x1, y1] = item1;
+      auto const[h2, x2, y2] = item2;
+      // AABB collision
+      if (x1 < x2 + radius && x1 + radius > x2 && y1 < y2 + radius && y1 + radius > y2) {
+        // p1..v2 actually are references as per c++ standard
+        auto[p1, v1] = em.get<c::position, c::velocity>(h1);
+        auto[p2, v2] = em.get<c::position, c::velocity>(h2);
+        // check if balls are moving away from each other
+        auto const p21x = p2.x - p1.x;
+        auto const p21y = p2.y - p1.y;
+        auto const v21x = v2.x - v1.x;
+        auto const v21y = v2.y - v1.y;
+        auto const m = p21x * v21x + p21y * v21y;
+        if (m < 0.f) {
+          ++collision_num;
+          // compute and update new positions and velocities
+          auto const p12x = -1.f * p21x;
+          auto const p12y = -1.f * p21y;
+          auto const d1 = p12x * p12x + p12y * p12y;
+          auto const d2 = p21x * p21x + p21y * p21y;
+          auto const v1o = v1;
+          auto const v2o = v2;
+          v1.x = v1o.x - m / d1 * p12x;
+          v1.y = v1o.y - m / d1 * p12y;
+          v2.x = v2o.x - m / d2 * p21x;
+          v2.y = v2o.y - m / d2 * p21y;
+          p1.x += v1.x * ts;
+          p1.y += v1.y * ts;
+          p2.x += v2.x * ts;
+          p2.y += v2.y * ts;
         }
       }
     });
-
     // update sfml objects
-    em.for_each<c::position, c::rect>([](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
-    em.for_each<c::position, c::sprite>([](auto const& p, auto& o) { o.obj.setPosition(p.pos); });
+    em.for_each<c::position, c::rect>([](auto const& p, auto& o) { o.obj.setPosition(p.x, p.y); });
+    em.for_each<c::position, c::sprite>(
+      [](auto const& p, auto& o) { o.obj.setPosition(p.x, p.y); });
   }
 
   void run(bool use_render_thread = false) {
@@ -264,25 +257,27 @@ struct game {
   // some stats displayed on screen
   void update_stats(sf::Time elapsed_time) {
     using std::to_string;
+    auto const refresh_time = 1.f;
     stats_time += elapsed_time;
     stats_frames += 1;
-    if (stats_time >= sf::seconds(1.0f)) {
-      stats_text.setString("fps: " + to_string(stats_frames) + "\n" + "time / update: " +
+    if (stats_time >= sf::seconds(refresh_time)) {
+      auto & [ avg, min, max ] = stats_fps;
+      avg = (avg + stats_frames) / 2;
+      min = min > stats_frames ? stats_frames : min;
+      max = max < stats_frames ? stats_frames : max;
+      stats_text.setString("fps:" + to_string(stats_frames) + " avg:" + to_string(avg) + " min:" +
+                           to_string(min) + " max:" + to_string(max) + "\n" + "time / update:" +
                            to_string(stats_time.asMicroseconds() / stats_frames) + "us\n" +
-                           "#entities: " + to_string(em.size()) + "\n" + "#active qtree leaf: " +
-                           to_string(qtree.size()) + " #collisions: " + to_string(collnum));
-
-      std::get<0>(stats_fps) = (std::get<0>(stats_fps) + stats_frames) / 2;
-      if (std::get<1>(stats_fps) > stats_frames) std::get<1>(stats_fps) = stats_frames;
-      if (std::get<2>(stats_fps) < stats_frames) std::get<2>(stats_fps) = stats_frames;
-      stats_time -= sf::seconds(1.0f);
+                           "#entities:" + to_string(em.size()) + "\n" + "#active qtree leaf:" +
+                           to_string(qtree.size()) + " #collisions:" + to_string(collision_num));
+      stats_time -= sf::seconds(refresh_time);
       stats_frames = 0;
     }
   }
 
   ~game() {
-    std::cout << "fps (av, min, max): " << std::get<0>(stats_fps) << ", " << std::get<1>(stats_fps)
-              << ", " << std::get<2>(stats_fps) << " " << std::endl;
+    auto[avg, min, max] = stats_fps;
+    std::cout << "fps (avg, min, max): " << avg << ", " << min << ", " << max << " " << std::endl;
   }
 
   sf::RenderWindow win;
@@ -297,7 +292,7 @@ struct game {
 
   using quadtree_t = quadtree<manager::handle, 256, 8>;
   quadtree_t qtree;
-  int collnum = 0;
+  int collision_num = 0;
 };
 
 int main() {

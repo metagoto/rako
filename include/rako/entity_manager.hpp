@@ -35,13 +35,16 @@ namespace rako {
     };
   }
 
-  template <typename... CGLs>
+  template <typename... ComponentsGroup>
   struct entity_manager {
-    using self_t = entity_manager<CGLs...>;
+    using self_t = entity_manager<ComponentsGroup...>;
+    using comp_group_list = meta::list<ComponentsGroup...>;
 
-    using group_tuple =
-      typename impl::group_id_expand<component_group_traits, std::index_sequence_for<CGLs...>,
-                                     CGLs...>::type;  // TODO: traits!
+    static_assert(meta::unique<comp_group_list>::size() == comp_group_list::size());
+
+    using group_tuple = typename impl::group_id_expand<component_group_traits,
+                                                       std::index_sequence_for<ComponentsGroup...>,
+                                                       ComponentsGroup...>::type;  // TODO: traits!
 
     using group_index_seq = std::make_index_sequence<std::tuple_size<group_tuple>::value>;
     using group_list = meta::as_list<group_tuple>;

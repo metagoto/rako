@@ -118,19 +118,38 @@ namespace rako {
       }
       void clear() { nodes.clear(); }
       auto size() const { return nodes.size(); }
+
       template <typename F>
       auto for_each(F&& f) const {
         for (auto const& p : nodes) { std::forward<F>(f)(p->items); }
+      }
+
+      template <typename F>
+      auto for_each_pair(F&& f) const {
+        for (auto const& p : nodes) {
+          auto const& items = p->items;
+          for (auto i = 0u; i < items.size(); ++i) {
+            for (auto j = i + 1; j < items.size(); ++j) { std::forward<F>(f)(items[i], items[j]); }
+          }
+        }
       }
     };
 
     quadtree(float x, float y, float w, float h)
       : root(x, y, w, h) {}
+
     void insert(value_type v, float x, float y) { root.insert(v, x, y, active_nodes); }
+
     template <typename F>
     auto for_each(F&& f) const {
       return active_nodes.for_each(std::forward<F>(f));
     }
+
+    template <typename F>
+    auto for_each_pair(F&& f) const {
+      return active_nodes.for_each_pair(std::forward<F>(f));
+    }
+
     auto clear() {
       active_nodes.clear();
       root.clear();

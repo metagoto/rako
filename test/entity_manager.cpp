@@ -173,34 +173,16 @@ auto test_struct_binding2() {
   CHECK((x4 == 2 && y4 == 2));
 }
 
-auto test_groups() {
+auto test_components_list() {
   using A = meta::list<pos, vel>;
-  using B = meta::list<pos, vel>;
-  using C = meta::list<pos, vel, name>;
-  using em_t = entity_manager<A, B, C>;
+  using B = meta::list<vel, pos>;
+
+  using em_t = entity_manager<A, B>;
+
   em_t em;
-
-  /*auto h1 = */ em.add(pos{1, 2}, vel{3, 4});
-  /*auto h2 = */ em.add(pos{11, 22}, vel{33, 44});
-  /*auto h3 = */ em.add(pos{6, 7}, vel{42, 43}, name{"hello"});
-
-  CHECK(true);
-}
-
-template <typename T>
-struct identity {
-  using type = T;
-};
-
-template <typename... T>
-void each(typename identity<std::function<void(T&...)>>::type f) {
-  static int i = 0;
-  static float j = 1.f;
-  f(i, j);
-}
-
-auto test_each() {
-  each<int, float>([](auto, auto const&) { CHECK(true); });
+  //em.reclaim();
+  em.add(pos{1, 2}, vel{3, 4});
+  em.add(vel{3, 4}, pos{1, 2});
 }
 
 int main() {
@@ -209,8 +191,7 @@ int main() {
   test_struct_binding();
   test_struct_binding2();
 
-  test_groups();
-  test_each();
+  test_components_list();
 
   return ::test_result();
 }
